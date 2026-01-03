@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laudo Neuropsicológico - Sistema Nuvem</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+    <div class="app-wrapper">
+        
+        <aside class="sidebar no-print">
+            <div class="sidebar-header">
+                <h2>Manain Sys</h2>
+            </div>
+            
+            <div class="scroll-area">
+                
+                <div class="form-group db-section">
+                    <label>📂 Banco de Dados de Pacientes</label>
+                    <select id="listaPacientesSalvos" onchange="carregarPacienteDoBanco()">
+                        <option value="">Carregar Paciente...</option>
+                    </select>
+                    <div class="btn-row">
+                        <button class="btn-save" onclick="salvarPaciente()">💾 Salvar</button>
+                        <button class="btn-delete" onclick="excluirPaciente()">🗑️ Excluir</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Paciente:</label>
+                    <input type="text" id="nomePaciente" oninput="atualizarRelatorio()" placeholder="Nome Completo">
+                    
+                    <label>Nascimento:</label>
+                    <input type="date" id="dataNasc" oninput="atualizarRelatorio()">
+                    
+                    <label>Data Aplicação:</label>
+                    <input type="date" id="dataAplicacao" oninput="atualizarRelatorio()">
+                </div>
+
+                <div class="form-group">
+                    <label>Instrumento:</label>
+                    <select id="testeSelecionado" onchange="atualizarRelatorio()">
+                        <option value="">Selecione...</option>
+                        <option value="wisc">WISC-V</option>
+                        <option value="wais">WAIS-IV</option>
+                        <option value="sonr">SON-R</option>
+                        <option value="abas">ABAS-III</option>
+                    </select>
+
+                    <button class="btn-primary" onclick="abrirChecklist()">Preencher Gráfico & Dados</button>
+                    <div id="statusCheck" class="status">Aguardando dados...</div>
+                </div>
+
+                <div class="form-group">
+                    <button class="btn-print" onclick="window.print()">🖨️ IMPRIMIR LAUDO COMPLETO</button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="preview-container">
+            
+            <table class="tabela-layout">
+                
+                <thead>
+                    <tr>
+                        <td>
+                            <div class="header-space">&nbsp;</div>
+                            <div class="header-fixed">
+                                <div class="timbrado-top">
+                                    <img src="col.png" alt="Logo COL" class="logo-topo">
+                                    
+                                    <h3>CENTRO OCUPACIONAL DE LONDRINA</h3>
+                                    <p class="sub">Escola Manain - Educação Infantil e Ensino Fundamental,<br>na Modalidade Educação Especial</p>
+                                    <div class="legal">
+                                        <p>Fundado Em 22/06/1985 - CNPJ 78.962.263/0001-79</p>
+                                        <p>Utilidade Pública Municipal Lei Nº 3.956 de 24/04/1987</p>
+                                    </div>
+                                    <hr class="line">
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </thead>
+
+                <tfoot>
+                    <tr>
+                        <td>
+                            <div class="footer-space">&nbsp;</div>
+                            <div class="footer-fixed">
+                                <div class="timbrado-bottom">
+                                    <hr class="line">
+                                    <p>Rua das Açucenas Nº. 100 - Jd. Colina Verde - Fone/Fax: (43) 3328-4415.</p>
+                                    <p>CEP: 86050-570-Londrina/ PR &nbsp;|&nbsp; centroocupacional.secretaria@gmail.com</p>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tfoot>
+
+                <tbody>
+                    <tr>
+                        <td class="content-cell">
+                            
+                            <div class="documento-corpo">
+                                <h1 class="titulo-principal">RELATÓRIO DE AVALIAÇÃO NEUROPSICOLÓGICA</h1>
+
+                                <section>
+                                    <h4 class="titulo-secao">1. IDENTIFICAÇÃO</h4>
+                                    <table class="tabela-dados">
+                                        <tr>
+                                            <td width="60%"><strong>Paciente:</strong> <span id="viewNome"></span></td>
+                                            <td><strong>Nasc.:</strong> <span id="viewNasc"></span></td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Data:</strong> <span id="viewData"></span></td>
+                                            <td><strong>Idade:</strong> <span id="viewIdade"></span></td>
+                                        </tr>
+                                    </table>
+                                </section>
+
+                                <section>
+                                    <h4 class="titulo-secao">2. MOTIVO DA AVALIAÇÃO</h4>
+                                    <div id="viewMotivo" class="texto-tecnico">
+                                        <p class="placeholder">[Preencha o nome e selecione o teste...]</p>
+                                    </div>
+                                </section>
+
+                                <section>
+                                    <h4 class="titulo-secao">3. ANÁLISE QUANTITATIVA E GRÁFICA</h4>
+                                    <div id="viewAnalise1" class="texto-tecnico">
+                                        <p class="placeholder">[Aguardando Checklist...]</p>
+                                    </div>
+
+                                    <div id="boxGrafico" class="grafico-wrapper" style="display:none;">
+                                        <canvas id="graficoLinha"></canvas>
+                                        <p class="legenda-grafico">Figura 1: Comparativo entre Desempenho Ideal (Linha Cinza) e Obtido (Linha Azul).</p>
+                                    </div>
+
+                                    <div id="viewAnalise2" class="texto-tecnico"></div>
+                                </section>
+
+                                <section>
+                                    <h4 class="titulo-secao">4. ENCAMINHAMENTOS</h4>
+                                    <div id="viewEncaminhamentos" class="texto-tecnico">
+                                        <p class="placeholder">[Aguardando Análise...]</p>
+                                    </div>
+                                </section>
+
+                                <section>
+                                    <h4 class="titulo-secao">5. CONCLUSÃO</h4>
+                                    <div id="viewConclusao" class="texto-tecnico">
+                                        <p class="placeholder">[Aguardando Análise...]</p>
+                                    </div>
+                                </section>
+
+                                <div class="assinatura-box">
+                                    <img src="asspsicologa.png" alt="Assinatura" class="img-ass" onerror="this.style.display='none'">
+                                    <p><strong>Jaqueline Gonçalves Malaquim</strong></p>
+                                    <p>Psicóloga - CRP 08/30548</p>
+                                </div>
+                            </div>
+
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+        </main>
+    </div>
+
+    <div id="modalChecklist" class="modal">
+        <div class="modal-card">
+            <h3>Pontuação (0 a 2)</h3>
+            <div id="listaChecklist"></div>
+            <div class="modal-botoes">
+                <button class="btn-success" onclick="salvarChecklist()">Gerar Gráfico e Análise</button>
+                <button class="btn-cancel" onclick="document.getElementById('modalChecklist').style.display='none'">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>

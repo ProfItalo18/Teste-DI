@@ -1,0 +1,159 @@
+/* ================= GERAL ================= */
+:root {
+    --header-height: 4.5cm; /* Altura do cabeçalho */
+    --footer-height: 3.5cm; /* Altura do rodapé */
+}
+
+body {
+    margin: 0; padding: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: #525659;
+    height: 100vh;
+    overflow: hidden; 
+}
+
+.app-wrapper { display: flex; height: 100%; }
+
+/* ================= BARRA LATERAL (SIDEBAR) ================= */
+.sidebar {
+    width: 320px; background: #f4f4f4; border-right: 1px solid #ccc;
+    display: flex; flex-direction: column; z-index: 100;
+}
+.sidebar-header { padding: 20px; background: white; border-bottom: 2px solid #0056b3; }
+.scroll-area { flex: 1; overflow-y: auto; padding: 20px; }
+
+.form-group { background: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd; margin-bottom: 15px; }
+label { display: block; font-weight: bold; font-size: 0.8rem; margin-top: 10px; }
+input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+
+button { width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+.btn-primary { background: #007bff; color: white; }
+.btn-print { background: #333; color: white; padding: 15px; font-size: 1rem; }
+.btn-success { background: #28a745; color: white; }
+.btn-cancel { background: #dc3545; color: white; }
+
+/* ESTILOS ESPECÍFICOS DO BANCO DE DADOS */
+.db-section { background: #e8f0fe; border-color: #b3d7ff; }
+.btn-row { display: flex; gap: 5px; }
+.btn-save { background: #17a2b8; color: white; }
+.btn-delete { background: #dc3545; color: white; }
+
+/* ================= ÁREA DE VISUALIZAÇÃO ================= */
+.preview-container {
+    flex: 1;
+    overflow-y: auto; 
+    padding: 30px;
+    display: flex;
+    justify-content: center;
+}
+
+/* ================= TABELA DE LAYOUT (FORMATO A4) ================= */
+.tabela-layout {
+    width: 210mm;
+    background: white;
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    border-collapse: collapse;
+}
+
+/* Espaçadores para cabeçalho e rodapé fixos */
+.header-space { height: var(--header-height); }
+.footer-space { height: var(--footer-height); }
+
+.header-fixed {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: var(--header-height);
+    pointer-events: none;
+    display: flex; justify-content: center;
+    background: white;
+    z-index: 10;
+}
+
+.footer-fixed {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: var(--footer-height);
+    pointer-events: none;
+    display: flex; justify-content: center; align-items: flex-end;
+    background: white;
+    z-index: 10;
+}
+
+/* ================= CABEÇALHO (TIMBRADO) COM LOGO NA ESQUERDA ================= */
+.timbrado-top {
+    position: relative; /* Base para o posicionamento absoluto da logo */
+    text-align: center;
+    width: 210mm;
+    padding-top: 0.5cm;
+    
+    /* Configuração para o texto não sobrepor a logo na ESQUERDA */
+    padding-left: 5cm; /* Reserva espaço na esquerda para a logo */
+    padding-right: 2cm; /* Mantém margem direita padrão */
+    box-sizing: border-box; 
+}
+
+.logo-topo {
+    position: absolute;
+    top: 0.4cm;      /* Alinha no topo */
+    left: 2cm;       /* Alinha à ESQUERDA, respeitando a margem da página */
+    height: 2.2cm;   /* Tamanho da logo */
+}
+
+.timbrado-top h3 { margin: 0; font-size: 14pt; font-weight: bold; }
+.timbrado-top .sub { margin: 5px 0; font-size: 11pt; font-weight: bold; }
+.timbrado-top .legal p { margin: 2px 0; font-size: 9pt; }
+.timbrado-top .line { width: 90%; border: 0; border-top: 2px solid black; margin: 10px auto; }
+
+/* RODAPÉ */
+.timbrado-bottom { text-align: center; width: 210mm; padding-bottom: 0.5cm; }
+.timbrado-bottom .line { width: 90%; border: 0; border-top: 1px solid black; margin: 5px auto; }
+.timbrado-bottom p { margin: 2px 0; font-size: 9pt; }
+
+/* ================= CONTEÚDO DO RELATÓRIO ================= */
+.content-cell {
+    padding: 0 2cm;
+    vertical-align: top;
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12pt;
+    line-height: 1.5;
+    color: black;
+}
+
+.titulo-principal { text-align: center; font-size: 14pt; text-decoration: underline; margin: 20px 0; }
+.titulo-secao { text-transform: uppercase; border-bottom: 1px solid black; margin-top: 30px; font-size: 12pt; }
+.texto-tecnico { text-align: justify; text-indent: 1.25cm; margin-bottom: 15px; white-space: pre-wrap; }
+.tabela-dados { width: 100%; border-collapse: collapse; }
+.tabela-dados td { border: 1px solid black; padding: 5px; }
+
+/* GRÁFICO */
+.grafico-wrapper {
+    width: 90%;
+    margin: 20px auto;
+    height: 350px;
+    display: block;
+}
+.legenda-grafico { text-align: center; font-size: 10pt; font-style: italic; margin-top: 5px; }
+
+/* ASSINATURA */
+.assinatura-box { margin-top: 60px; text-align: center; page-break-inside: avoid; }
+.img-ass { width: 200px; }
+
+/* ================= MODAL DE CHECKLIST ================= */
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; }
+.modal-card { background: white; padding: 20px; width: 400px; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+.chk-item { display: flex; justify-content: space-between; padding: 5px; border-bottom: 1px solid #eee; }
+
+/* ================= CONFIGURAÇÃO DE IMPRESSÃO ================= */
+@media print {
+    @page { margin: 0; size: A4; }
+    
+    body { background: white; height: auto; overflow: visible; }
+    .no-print { display: none !important; }
+    .preview-container { padding: 0; display: block; overflow: visible; }
+    .tabela-layout { width: 100%; box-shadow: none; }
+
+    .header-fixed { position: fixed; top: 0; margin-left: 0; }
+    .footer-fixed { position: fixed; bottom: 0; margin-left: 0; }
+
+    tr { page-break-inside: avoid; }
+    .titulo-secao { page-break-after: avoid; }
+    .grafico-wrapper { page-break-inside: avoid; }
+}
