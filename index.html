@@ -28,7 +28,9 @@
                         <button class="btn-save" onclick="salvarPaciente()">💾 Salvar</button>
                         <button class="btn-delete" onclick="excluirPaciente()">🗑️ Excluir</button>
                     </div>
+                    <div id="statusCheck" class="status">Aguardando ação...</div>
                 </div>
+
                 <div class="form-group">
                     <label>Paciente:</label>
                     <input type="text" id="nomePaciente" oninput="atualizarRelatorio()" placeholder="Nome Completo">
@@ -41,21 +43,36 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Instrumento:</label>
-                    <select id="testeSelecionado" onchange="atualizarRelatorio()">
-                        <option value="">Selecione...</option>
-                        <option value="wisc">WISC-V</option>
-                        <option value="wais">WAIS-IV</option>
-                        <option value="sonr">SON-R</option>
-                        <option value="abas">ABAS-III</option>
+                    <label>Instrumento de Avaliação:</label>
+                    <select id="testeSelecionado" onchange="resetarDadosTeste()">
+                        <option value="" disabled selected>-- Selecione --</option>
+                        
+                        <optgroup label="Inteligência (QI) - Verbal e Executivo">
+                            <option value="wisc">WISC-IV (6 a 16 anos)</option>
+                            <option value="wais">WAIS-III (16 a 90 anos)</option>
+                        </optgroup>
+
+                        <optgroup label="Inteligência Não-Verbal (Ideal p/ TEA/Fala)">
+                            <option value="sonr27">SON-R 2½-7 [a] (2 a 7 anos)</option>
+                            <option value="sonr640">SON-R 6-40 (6 a 40 anos)</option>
+                            <option value="raven">Matrizes de Raven (Geral)</option>
+                        </optgroup>
+
+                        <optgroup label="Comportamento Adaptativo (Essencial p/ DI)">
+                            <option value="abas">ABAS-3 (Todas as idades)</option>
+                            <option value="vinhais">Vinhais-3 (Todas as idades)</option>
+                        </optgroup>
                     </select>
 
+                    <p style="font-size: 0.75rem; color: #666; margin-top: 5px; font-style: italic; margin-bottom: 10px;">
+                        *Selecione o teste para liberar o preenchimento.
+                    </p>
+
                     <button class="btn-primary" onclick="abrirChecklist()">Preencher Gráfico & Dados</button>
-                    <div id="statusCheck" class="status">Aguardando dados...</div>
                 </div>
 
                 <div class="form-group">
-                    <button class="btn-print" onclick="window.print()">🖨️ IMPRIMIR LAUDO COMPLETO</button>
+                    <button class="btn-print" onclick="window.print()">🖨️ IMPRIMIR LAUDO</button>
                 </div>
             </div>
         </aside>
@@ -115,8 +132,8 @@
                                             <td><strong>Nasc.:</strong> <span id="viewNasc"></span></td>
                                         </tr>
                                         <tr>
-                                            <td><strong>Data:</strong> <span id="viewData"></span></td>
                                             <td><strong>Idade:</strong> <span id="viewIdade"></span></td>
+                                            <td><strong>Data Avaliação:</strong> <span id="viewData"></span></td>
                                         </tr>
                                     </table>
                                 </section>
@@ -173,7 +190,7 @@
 
     <div id="modalChecklist" class="modal">
         <div class="modal-card">
-            <h3>Pontuação (0 a 2)</h3>
+            <h3>Pontuação do Teste</h3>
             <div id="listaChecklist"></div>
             <div class="modal-botoes">
                 <button class="btn-success" onclick="salvarChecklist()">Gerar Gráfico e Análise</button>

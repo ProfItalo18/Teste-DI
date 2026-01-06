@@ -1,10 +1,8 @@
 /* ================= CONFIGURAÇÃO DO FIREBASE (BANCO DE DADOS) ================= */
-// Importa as funções necessárias do CDN (para rodar direto no navegador)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc } 
 from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-// Configuração extraída da sua imagem (Screenshot)
 const firebaseConfig = {
   apiKey: "AIzaSyDsUix6zvKOznC1SY_j2AQHzr-6hrcLlNc",
   authDomain: "clinicasyscol.firebaseapp.com",
@@ -14,380 +12,499 @@ const firebaseConfig = {
   appId: "1:922450718294:web:0285b9271e02bfb96695f7"
 };
 
-// Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const nomeColecao = "pacientes"; // Tabela onde salvamos
+const nomeColecao = "pacientes";
 
 /* ================= VARIÁVEIS GLOBAIS ================= */
 let dados = { media: 0, valores: [], labels: [], teste: "" };
-let graficoInstancia = null;
-let pacienteAtualId = null; // ID do documento no Firebase
-let listaPacientesCache = []; // Cache local da lista vinda do banco
+let chartInstance = null;
 
-// Dicionário Técnico Expandido
-const dicionario = {
-    wisc: {
-        itens: ["Semelhanças", "Vocabulário", "Cubos", "Matricial", "Dígitos", "Códigos", "Símbolos"],
-        desc: [
-            "capacidade de abstração verbal e formação de conceitos",
-            "conhecimento lexical e memória semântica de longo prazo",
-            "organização visuoespacial, coordenação visomotora e planejamento",
-            "inteligência fluida, raciocínio lógico indutivo e dedutivo",
-            "memória operacional auditiva e controle atencional",
-            "velocidade de processamento psicomotor e aprendizado associativo",
-            "rastreio visual, flexibilidade cognitiva e atenção sustentada"
-        ]
-    },
-    wais: {
-        itens: ["Raciocínio Matricial", "Vocabulário", "Aritmética", "Cubos", "Códigos", "Dígitos"],
-        desc: [
-            "raciocínio fluido não-verbal e resolução de problemas novos",
-            "compreensão verbal, nível cultural e cristalização do saber",
-            "memória operacional, atenção e raciocínio quantitativo",
-            "processamento visual, construção espacial e integração",
-            "velocidade de processamento e coordenação visual-motora",
-            "atenção concentrada e memória de curto prazo"
-        ]
-    },
-    sonr: {
-        itens: ["Categorias", "Situações", "Analogias", "Padrões"],
-        desc: [
-            "raciocínio categorial e pensamento abstrato",
-            "compreensão de situações concretas e senso comum",
-            "raciocínio analógico e mudança de set mental",
-            "percepção visual e completamento de gestalts"
-        ]
-    },
-    abas: {
-        itens: ["Comunicação", "Uso Comunitário", "Acadêmico", "Vida Doméstica", "Saúde/Segurança"],
-        desc: [
-            "linguagem receptiva e expressiva funcional",
-            "autonomia na locomoção e uso de recursos sociais",
-            "habilidades escolares fundamentais aplicadas à vida",
-            "independência em tarefas do lar e autocuidado",
-            "capacidade de antecipar perigos e preservar a integridade"
-        ]
-    }
-};
-
-/* ================= EXPONDO FUNÇÕES PARA O HTML ================= */
-// Como usamos type="module", precisamos "pendurar" as funções na janela (window)
+// Disponibiliza funções para o HTML
 window.salvarPaciente = salvarPaciente;
 window.carregarPacienteDoBanco = carregarPacienteDoBanco;
 window.excluirPaciente = excluirPaciente;
 window.atualizarRelatorio = atualizarRelatorio;
 window.abrirChecklist = abrirChecklist;
 window.salvarChecklist = salvarChecklist;
+window.resetarDadosTeste = resetarDadosTeste;
 
-/* ================= LÓGICA DO BANCO DE DADOS (FIREBASE) ================= */
+/* ================= LISTAS DE ITENS (CHECKLISTS) ================= */
+const checklists = {
+    "wisc": [
+        "Compreensão Verbal (Semelhanças, Vocabulário)",
+        "Visuoespacial (Cubos, Quebra-cabeça)",
+        "Raciocínio Fluido (Matrizes, Peso Figurado)",
+        "Memória de Trabalho (Dígitos, Figuras)",
+        "Velocidade de Processamento (Código, Procurar Símbolo)",
+        "Aritmética / Raciocínio Quantitativo",
+        "Retenção de Informação Auditiva"
+    ],
+    "wais": [
+        "Compreensão Verbal (Conhecimento Cristalizado)",
+        "Organização Perceptual (Visuoespacial)",
+        "Memória Operacional (Controle Atencional)",
+        "Velocidade de Processamento (Psicomotor)",
+        "Raciocínio Matricial (Inteligência Fluida)",
+        "Aritmética e Cálculo Mental"
+    ],
+    "sonr27": [
+        "Mosaicos (Habilidade Espacial)", "Categorias (Abstração)", 
+        "Situações (Causa e Efeito)", "Padrões (Sequenciamento)",
+        "Coordenação Visuomotora Fina"
+    ],
+    "sonr640": [
+        "Analogias (Pensamento Abstrato)", "Mosaicos (Planejamento)", 
+        "Categorias (Classificação Semântica)", "Situações (Inteligência Prática)",
+        "Flexibilidade Cognitiva"
+    ],
+    "raven": [
+        "Série A (Discriminação Perceptual)", "Série B (Analogia Concreta)", 
+        "Série C (Padrões Progressivos)", "Série D (Decomposição de Figuras)", 
+        "Série E (Abstração Superior)"
+    ],
+    "abas": [
+        "Comunicação Funcional", "Uso de Recursos Comunitários", "Habilidades Acadêmicas", 
+        "Vida Doméstica e Autocuidado", "Saúde e Segurança", "Lazer e Socialização", 
+        "Autodireção e Escolha", "Social", "Motor"
+    ],
+    "vinhais": [
+        "Comunicação Receptiva/Expressiva", "Habilidades Sociais e Empatia", 
+        "Cuidados Pessoais (Higiene/Vestuário)", "Vida Doméstica e Tarefas", 
+        "Independência na Comunidade", "Trabalho e Ocupação",
+        "Lazer e Recreação"
+    ]
+};
+
+/* ================= TEXTOS PADRÕES EXPANDIDOS (MIN 30 LINHAS) ================= */
+const textosPadrao = {
+    wisc: {
+        motivo: `A Avaliação Neuropsicológica constitui um procedimento de investigação clínica complexo, sistemático e minucioso, cujo objetivo primordial transcende a mera aplicação de testes psicométricos isolados. Este processo visa mapear, de forma abrangente, o funcionamento cognitivo, comportamental e emocional do indivíduo, correlacionando o desempenho obtido com a integridade funcional do Sistema Nervoso Central (SNC). No presente caso, a solicitação deste psicodiagnóstico fundamenta-se na necessidade clínica imperativa de investigar a etiologia das queixas funcionais relatadas na anamnese, diferenciando se tais manifestações possuem origem pedagógica, emocional, ambiental ou se configuram um transtorno do neurodesenvolvimento de base biológica.
+
+Para atender a esta demanda com o rigor científico necessário, optou-se pela seleção e aplicação da Escala de Inteligência WISC-IV (Wechsler Intelligence Scale for Children), instrumento reconhecido internacionalmente pela comunidade científica como padrão-ouro para a mensuração do potencial cognitivo em crianças e adolescentes. A escolha técnica deste teste justifica-se por suas robustas qualidades psicométricas de validade (capacidade de medir o que se propõe) e fidedignidade (consistência dos resultados ao longo do tempo). O instrumento permite uma análise fatorial detalhada não apenas do Quociente de Inteligência Total (QIT), mas das discrepâncias sutis entre os índices de Compreensão Verbal (ICV), Raciocínio Perceptual (IRP), Memória Operacional (IMO) e Velocidade de Processamento (IVP).
+
+Ressalta-se que a aplicação deste protocolo obedeceu rigorosamente às normativas vigentes do Conselho Federal de Psicologia (CFP) e aos padrões internacionais de testagem (ITC). O procedimento ocorreu em ambiente controlado, livre de distratores visuais e auditivos, sob condições ideais de iluminação e ventilação, visando garantir que o desempenho obtido reflita, com a maior precisão possível, a capacidade real do avaliando. A análise aqui proposta integra dados quantitativos a observações qualitativas da conduta, como tolerância à frustração, persistência na tarefa, estratégias metacognitivas utilizadas para a resolução de problemas e o nível de esforço mental dispendido durante a execução das tarefas.`,
+        
+        analise: `A análise aprofundada dos dados quantitativos, convertidos em escores ponderados e comparados à tabela normativa correspondente à idade cronológica, revela um perfil neuropsicológico que exige atenção detalhada e intervenção específica. Conforme ilustrado na Figura 1 (Gráfico Comparativo de Desempenho), a linha azul traça a trajetória das habilidades do paciente, permitindo visualizar tanto os picos de competência quanto os vales de dificuldade em relação à média esperada (linha tracejada de base normativa).
+
+O funcionamento intelectual global apresentou-se [DESEMPENHO], porém, a análise qualitativa dos subtestes aponta para uma heterogeneidade cognitiva significativa. Observou-se que as funções de raciocínio cristalizado (dependentes de aprendizado prévio, vocabulário e cultura) e habilidades visuoespaciais mostram-se [DESEMPENHO2]. No entanto, é crucial destacar o impacto das Funções Executivas e da Memória Operacional neste perfil. O gráfico evidencia oscilações importantes nas tarefas que exigem controle inibitório, flexibilidade mental e retenção de informações. Tais "gaps" funcionais sugerem que o paciente, embora possa compreender conceitos complexos, falha na sustentação da atenção e na manipulação mental de dados, o que gera fadiga cognitiva precoce e inconsistência no rendimento escolar.
+
+Adicionalmente, a análise da Velocidade de Processamento indicou uma eficiência neurológica [DESEMPENHO3]. Na prática, isso significa que o tempo que o paciente leva para decodificar, processar e emitir uma resposta pode ser incompatível com a demanda do ambiente escolar tradicional, gerando a falsa impressão de desinteresse ou incapacidade. As falhas observadas não parecem decorrer de falta de conhecimento, mas sim de uma dificuldade no "output" (saída) e na organização sequencial do pensamento. Este perfil disexecutivo impacta diretamente a autonomia, exigindo supervisão constante para tarefas que crianças da mesma idade realizariam de forma independente.`,
+        
+        conclusao: `Diante da integração exaustiva dos dados de anamnese, das observações clínicas comportamentais durante as sessões e dos resultados psicométricos quantitativos e qualitativos aqui expostos, conclui-se que o perfil neuropsicológico do examinando é compatível com a hipótese diagnóstica de [HIPOTESE].
+
+É fundamental ressaltar que este diagnóstico não constitui uma sentença de incapacidade estática, mas sim um descritor clínico funcional que serve para orientar a rede de apoio sobre o nível de exigência e o tipo de suporte que o indivíduo necessita. O cérebro em desenvolvimento possui neuroplasticidade, e o prognóstico é considerado [RESULTADO], estando diretamente condicionado à precocidade, consistência e qualidade das intervenções multidisciplinares implementadas. Sem o suporte adequado, há risco de agravamento das defasagens e surgimento de prejuízos secundários na saúde mental, como ansiedade de desempenho e baixa autoestima. Contudo, com as adaptações curriculares e ambientais sugeridas, vislumbra-se um potencial significativo de ganho de autonomia e funcionalidade social.`
+    },
+    
+    wais: {
+        motivo: `A avaliação neuropsicológica em adultos é uma ferramenta clínica essencial e refinada para compreender o funcionamento cerebral e suas implicações na vida cotidiana, laboral e acadêmica. Diferente da avaliação infantil, que foca no desenvolvimento, esta investigação busca mensurar a eficiência atual dos processos mentais, identificando se eventuais declínios, lentificações ou dificuldades possuem origem neurobiológica, psiquiátrica, medicamentosa ou ambiental. O processo avaliativo considera a história de vida, a escolaridade e a reserva cognitiva do indivíduo como fatores moderadores do desempenho.
+
+Para este estudo de caso, selecionou-se a Escala de Inteligência WAIS (Wechsler Adult Intelligence Scale), instrumento de referência mundial para a mensuração da inteligência e das funções executivas em adultos. A escolha técnica baseia-se na capacidade do teste de dissociar habilidades verbais (inteligência cristalizada) de habilidades de execução (inteligência fluida), permitindo investigar não apenas o "quanto" o indivíduo sabe, mas "como" ele processa novas informações e resolve problemas inéditos. O protocolo avalia domínios críticos como Compreensão Verbal, Organização Perceptual, Memória de Trabalho e Velocidade de Processamento, fundamentais para a autonomia, gestão financeira e tomada de decisão. A aplicação seguiu rigorosamente os padrões éticos e técnicos, garantindo a fidedignidade e validade ecológica dos resultados apresentados.`,
+        
+        analise: `Os resultados obtidos, após a devida conversão para escores padronizados e análise estatística rigorosa, delineiam um perfil cognitivo com características específicas que impactam a funcionalidade diária do examinando. Ao observarmos a representação gráfica (Figura 1), nota-se a distância vetorial entre o desempenho do paciente (linha azul) e o esperado para sua faixa etária e nível de escolaridade (linha cinza).
+
+O Índice de Compreensão Verbal e conhecimento acumulado apresentou-se [DESEMPENHO], o que sugere que as redes neurais responsáveis pelo armazenamento de informações de longo prazo, vocabulário e julgamento social estão preservadas. Contudo, ao analisarmos os índices de Eficiência Cognitiva (Memória Operacional e Velocidade de Processamento), identificamos um padrão [DESEMPENHO2]. Esta discrepância interna (intra-individual) sugere que o paciente possui o potencial intelectual latente, mas encontra "gargalos" no momento de expressar essa inteligência sob pressão de tempo ou em tarefas multimodais que exigem divisão atencional.
+
+Clinicamente, esses resultados correlacionam-se fortemente com as queixas de dificuldade de organização, procrastinação, perda de prazos e esquecimentos frequentes relatadas na entrevista inicial. A análise qualitativa indicou que, diante de tarefas complexas e não estruturadas, o paciente tende a perder o foco ou utilizar estratégias de resolução de problemas pouco eficientes (tentativa e erro), o que gera sobrecarga mental, fadiga e ansiedade de desempenho. Não foram observados sinais sugestivos de processos demenciais degenerativos primários neste momento, mas sim um perfil funcional disexecutivo que requer reabilitação e estratégias compensatórias.`,
+        
+        conclusao: `A síntese dos achados neuropsicológicos, interpretada à luz da história clínica, ocupacional e social do paciente, permite concluir que o perfil atual é compatível com a hipótese diagnóstica de [HIPOTESE].
+
+Este quadro clínico não deve ser interpretado necessariamente como uma incapacidade laborativa total, mas indica a necessidade premente de adaptações ergonômicas cognitivas no ambiente de trabalho e estudo. O prognóstico funcional é [RESULTADO], dependendo diretamente da adesão às estratégias compensatórias sugeridas e do manejo das comorbidades emocionais. A neuroplasticidade, embora mais intensa na infância, permanece ativa na vida adulta, permitindo o aprendizado de novas rotas neurais e a otimização de recursos cognitivos através de treino sistemático. O acompanhamento longitudinal é recomendado para monitorar a evolução do quadro.`
+    },
+
+    sonr27: {
+        motivo: `A avaliação do desenvolvimento cognitivo na primeira infância, especialmente em casos complexos onde há atraso na aquisição da linguagem, suspeita de Transtorno do Espectro Autista (TEA), surdez ou timidez excessiva, impõe desafios técnicos significativos ao avaliador. Testes tradicionais dependentes da fala podem subestimar drasticamente o potencial da criança, confundindo uma dificuldade de expressão verbal com um déficit intelectual global, o que levaria a condutas terapêuticas inadequadas.
+
+Por esta razão técnica, a avaliação foi conduzida utilizando o Teste Não-Verbal de Inteligência SON-R 2½-7 [a]. Este instrumento é reconhecido internacionalmente por sua "cultural fairness" (justiça cultural) e pela ausência de demanda verbal, tanto na instrução quanto na resposta. O objetivo primordial foi acessar a inteligência fluida pura (Fator G), ou seja, a capacidade da criança de resolver problemas novos, entender relações de causa e efeito e categorizar o mundo visualmente, independentemente de sua capacidade de falar ou ouvir. A aplicação ocorreu de forma lúdica, flexível e adaptada, visando manter o engajamento, o vínculo e a motivação da criança durante todo o processo avaliativo.`,
+        
+        analise: `A análise do desempenho da criança no SON-R fornece dados valiosos e fidedignos sobre a integridade de seu raciocínio lógico e potencial de aprendizado. Conforme demonstrado no gráfico anexo (Figura 1), a curva de desempenho (linha azul) foi comparada com o desenvolvimento típico esperado para a idade cronológica exata (linha cinza de referência).
+
+O resultado global situou-se em um nível [DESEMPENHO]. Ao dissecarmos as habilidades específicas, notamos que nas tarefas de raciocínio espacial e concreto (Subtestes de Mosaicos e Padrões), a criança demonstrou [DESEMPENHO2]. Isso indica que a via visual de processamento de informações está funcional e preservada, permitindo que a criança aprenda por observação, imitação e modelagem. Entretanto, nas tarefas que exigem maior nível de abstração, simbolismo e flexibilidade cognitiva (Subtestes de Categorias e Situações), observou-se maior dificuldade e necessidade de mediação.
+
+Qualitativamente, notou-se que a criança beneficia-se significativamente de pistas visuais, demonstração prática e estruturação do ambiente, o que é um indicador prognóstico fundamental para a escolha de métodos pedagógicos e terapêuticos. As dificuldades encontradas parecem estar mais relacionadas à rigidez de pensamento, desatenção ou falhas no processamento sequencial do que a uma incapacidade estrutural de raciocínio, sugerindo que o potencial latente é superior ao desempenho manifesto atual, desde que a via de entrada da informação seja visual e concreta.`,
+        
+        conclusao: `Conclui-se, a partir da análise dos dados não-verbais, que o funcionamento intelectual do examinando encontra-se classificado como [HIPOTESE].
+
+Este dado é crucial para o diagnóstico diferencial, pois permite afastar (ou confirmar) a hipótese de Deficiência Intelectual global, apontando para questões mais específicas de linguagem, interação social ou processamento sensorial. O prognóstico é favorável e [RESULTADO], visto que a criança demonstra permeabilidade à intervenção visual e capacidade de aprendizado quando o canal de comunicação é adequado às suas necessidades. A intervenção precoce é o fator determinante para minimizar o impacto das dificuldades atuais na vida futura da criança, devendo ser iniciada imediatamente.`
+    },
+
+    abas: {
+        motivo: `A avaliação contemporânea e ética dos transtornos do neurodesenvolvimento (como a Deficiência Intelectual e o TEA) não se baseia mais exclusivamente no QI. Os manuais diagnósticos atuais de referência mundial (DSM-5-TR e CID-11) exigem a investigação rigorosa do Comportamento Adaptativo, definido como a eficácia e a autonomia com que o indivíduo atende aos padrões de independência pessoal e responsabilidade social esperados para sua idade e grupo cultural.
+
+Utilizou-se para este fim o Sistema de Avaliação do Comportamento Adaptativo (ABAS-3), uma escala padronizada e validada que investiga três domínios maiores: Conceitual (comunicação, habilidades acadêmicas, autodireção), Social (lazer, interação) e Prático (autocuidado, vida doméstica, saúde, segurança, uso da comunidade). Esta ferramenta permite mensurar não o que o paciente é "capaz" de fazer em um ambiente de teste controlado (capacidade máxima), mas o que ele efetivamente "faz" no seu dia a dia (performance típica). O objetivo central é identificar o Nível de Suporte necessário (Leve, Moderado, Grave ou Profundo) para que o indivíduo funcione na sociedade com dignidade, segurança e qualidade de vida.`,
+        
+        analise: `A análise detalhada dos domínios adaptativos revela informações cruciais sobre a funcionalidade real e a autonomia do paciente. O Gráfico de Habilidades Adaptativas (Figura 1) ilustra de forma clara as discrepâncias entre as demandas do ambiente e a resposta comportamental do avaliando. O Índice Geral de Adaptação (IGA) situou-se na faixa [DESEMPENHO], indicando o grau de eficácia na resposta às exigências cotidianas.
+
+Ao analisarmos os subdomínios, observamos que as Habilidades Práticas (autocuidado, uso de recursos comunitários, saúde e segurança) apresentaram-se [DESEMPENHO2]. Isso sugere que o paciente possui dependência significativa de terceiros para atividades instrumentais da vida diária, como higiene pessoal, vestuário, alimentação ou locomoção independente. Já no domínio Social e de Lazer, notou-se um repertório restrito, indicando dificuldades na leitura de normas sociais implícitas, na manutenção de interações recíprocas e no uso construtivo do tempo livre.
+
+A discrepância entre o potencial cognitivo (medido pelo QI) e o comportamento adaptativo é um marcador clínico importante. Neste caso, a "idade adaptativa" mostra-se inferior à idade cronológica e mental, o que justifica a necessidade de supervisão constante. O perfil indica vulnerabilidade social, ingenuidade e dificuldade em antecipar consequências de longo prazo de suas ações, exigindo uma rede de proteção ativa e treinamentos específicos de habilidades de vida.`,
+        
+        conclusao: `Os resultados obtidos através da escala adaptativa, corroborados pela entrevista de anamnese, são compatíveis com um diagnóstico funcional de [HIPOTESE].
+
+Evidencia-se a necessidade de um Nível de Suporte [RESULTADO] (variando de Intermitente a Substancial) para as atividades da vida civil e prática. É imperativo compreender que a autonomia, neste perfil neuropsicológico, deve ser ensinada de forma explícita, visual, repetitiva e sistemática; ela não surge espontaneamente apenas com o amadurecimento biológico. O foco da intervenção deve transitar da "reabilitação de déficits" para a "construção de funcionalidade", visando a máxima independência possível dentro das limitações constitucionais do indivíduo.`
+    },
+
+    raven: {
+        motivo: `A avaliação da inteligência fluida através das Matrizes Progressivas de Raven constitui um método clássico, robusto e universal para acessar o Fator G (Inteligência Geral) livre de influências culturais, educacionais e linguísticas. O teste avalia a capacidade edutiva, ou seja, a habilidade de extrair sentido de uma confusão visual, identificar padrões não óbvios, gerar novos insights lógicos e gerenciar variáveis simultâneas. É o instrumento ideal para triagem cognitiva rápida e eficaz, permitindo identificar potenciais intelectuais mesmo em indivíduos com dificuldades verbais significativas, barreiras educacionais ou questões motoras que impeçam a execução de outros testes.`,
+        analise: `O desempenho quantitativo e qualitativo no teste de Matrizes Progressivas indica uma capacidade de raciocínio lógico [DESEMPENHO]. O paciente foi capaz de identificar padrões visuais simples, realizar analogias concretas e completar gestalt, demonstrando preservação da percepção visual básica e da organização espacial. Porém, demonstrou dificuldades significativas em séries que exigiam raciocínio abstrato superior (Séries D e E), decomposição de figuras complexas e manipulação mental de múltiplas variáveis simultâneas. O tempo de execução e a estratégia de tentativa e erro observados sugerem um estilo cognitivo impulsivo, com dificuldade em planejar a resposta e inibir distratores antes da ação.`,
+        conclusao: `O perfil obtido é compatível com um potencial intelectual classificado como [HIPOTESE]. Sugere-se fortemente a complementação com testes específicos de funções executivas, memória e linguagem para um panorama neuropsicológico completo, visto que o Raven avalia apenas uma faceta da inteligência (fluida não-verbal). O prognóstico de aprendizado é [RESULTADO] para tarefas que envolvam lógica visual e aprendizagem mecânica, exigindo maior suporte e adaptação em tarefas que dependam exclusivamente de processamento verbal abstrato.`
+    },
+    
+    vinhais: {
+        motivo: `A Escala de Comportamento Adaptativo Vinhais-3 é um instrumento nacional fundamental e ecologicamente válido para mapear o grau de independência do indivíduo em seu contexto real de vida (casa, escola e comunidade). Avalia-se a competência social, a comunicação funcional e as habilidades de vida diária, fornecendo dados sobre como o paciente aplica seus recursos cognitivos na realidade prática. O foco da avaliação não é o desempenho máximo (o que ele consegue fazer sob pressão), mas o desempenho típico (o que ele realmente faz) em situações do cotidiano, permitindo planejar intervenções que visem a autonomia possível e a redução da sobrecarga do cuidador.`,
+        analise: `Os resultados indicam um funcionamento adaptativo geral [DESEMPENHO]. As áreas de maior prejuízo funcional envolvem a socialização e a comunicação expressiva, onde o paciente demonstra passividade, isolamento ou inadequação na iniciação de contatos. Por outro lado, as habilidades de autocuidado básico (alimentação e higiene simples) mostram-se relativamente preservadas, embora ainda exijam lembretes verbais frequentes para serem iniciadas ou concluídas com qualidade. O paciente necessita de mediação constante de um adulto para resolver conflitos interpessoais, gerir seu dinheiro e organizar sua rotina de forma autônoma, apresentando dificuldade acentuada em se adaptar a mudanças imprevistas no ambiente.`,
+        conclusao: `Conclui-se pela necessidade de suporte e supervisão [HIPOTESE] nas atividades cotidianas. O prognóstico de independência é [RESULTADO], demandando treino intensivo de habilidades sociais (THS) e inclusão em grupos terapêuticos para modelagem de comportamento adequado. A família deve ser orientada a fornecer oportunidades de escolha controlada para fomentar a autodeterminação, reduzindo gradualmente a assistência física e verbal conforme a aquisição de competências.`
+    },
+    
+    sonr640: {
+         motivo: `O SON-R 6-40 é um teste de inteligência não-verbal de alto padrão, desenhado especificamente para crianças mais velhas, adolescentes e adultos, permitindo a avaliação fidedigna de raciocínio fluido e espacial sem a barreira da linguagem. É uma ferramenta essencial para diagnósticos diferenciais em populações com dificuldades de comunicação, surdez, TEA ou background cultural diverso, garantindo que o potencial cognitivo real não seja mascarado por déficits linguísticos ou educacionais. O teste avalia quatro domínios principais: Analogias, Mosaicos, Categorias e Situações, cobrindo raciocínio abstrato, concreto e espacial.`,
+         analise: `O desempenho do examinando revelou habilidades de raciocínio [DESEMPENHO]. A análise detalhada das subprovas de Analogias e Categorias sugere uma boa capacidade de abstração e formação de conceitos quando o suporte visual está presente. Entretanto, as provas de Mosaicos e Situações indicaram dificuldades no planejamento executivo, organização visuoespacial e sequenciamento temporal, sugerindo lentidão no processamento e dificuldade em decompor o todo em partes. O perfil sugere um funcionamento mental preservado em termos de lógica, mas com falhas na execução prática, na velocidade psicomotora e na flexibilidade cognitiva diante de erros.`,
+         conclusao: `O perfil cognitivo não-verbal apresenta-se compatível com [HIPOTESE]. O prognóstico para desenvolvimento de habilidades práticas é [RESULTADO]. Indica-se intervenção psicopedagógica e neuropsicológica focada em estratégias de organização e planejamento (funções executivas), visando otimizar o potencial intelectual identificado. O uso de mapas mentais, cronogramas e organizadores visuais será de grande valia para o aprendizado de novos conteúdos acadêmicos ou laborais.`
+    }
+};
+
+/* ================= FUNÇÕES DO BANCO DE DADOS ================= */
+
+async function carregarListaPacientes() {
+    const select = document.getElementById("listaPacientesSalvos");
+    select.innerHTML = '<option value="">Carregar Paciente...</option>';
+    
+    try {
+        const querySnapshot = await getDocs(collection(db, nomeColecao));
+        querySnapshot.forEach((doc) => {
+            const opt = document.createElement("option");
+            opt.value = doc.id;
+            const dataP = doc.data().dataAplicacao ? ` (${formatarData(doc.data().dataAplicacao)})` : "";
+            opt.text = doc.data().nome + dataP;
+            select.add(opt);
+        });
+    } catch (e) {
+        console.error("Erro ao listar:", e);
+        document.getElementById("statusCheck").innerText = "Erro ao conectar no banco.";
+    }
+}
 
 async function salvarPaciente() {
     const nome = document.getElementById("nomePaciente").value;
-    if (!nome) return alert("Preencha o nome do paciente para salvar.");
+    if (!nome) return alert("Digite o nome do paciente!");
 
-    const registro = {
+    const dadosParaSalvar = {
         nome: nome,
-        nasc: document.getElementById("dataNasc").value,
-        aplicacao: document.getElementById("dataAplicacao").value,
-        teste: document.getElementById("testeSelecionado").value,
-        dadosClinicos: dados, // Salva o objeto completo
+        nascimento: document.getElementById("dataNasc").value,
+        dataAplicacao: document.getElementById("dataAplicacao").value,
+        testeSelecionado: document.getElementById("testeSelecionado").value,
+        analise1: document.getElementById("viewAnalise1").innerText, 
+        analise2: document.getElementById("viewAnalise2").innerText,
+        conclusao: document.getElementById("viewConclusao").innerText,
+        checklistData: dados,
         dataAtualizacao: new Date().toISOString()
     };
 
-    const btn = document.querySelector(".btn-save");
-    const textoOriginal = btn.innerText;
-    btn.innerText = "Salvando...";
-    btn.disabled = true;
-
     try {
-        if (pacienteAtualId) {
-            // ATUALIZAR
-            if(confirm("Deseja atualizar os dados deste paciente existente?")) {
-                const docRef = doc(db, nomeColecao, pacienteAtualId);
-                await updateDoc(docRef, registro);
-                alert("Dados atualizados na nuvem!");
-            }
-        } else {
-            // CRIAR NOVO
-            await addDoc(collection(db, nomeColecao), registro);
-            alert("Novo paciente salvo na nuvem!");
-        }
-        await atualizarListaBanco();
+        await addDoc(collection(db, nomeColecao), dadosParaSalvar);
+        alert("Paciente salvo com sucesso!");
+        carregarListaPacientes();
+        limparCamposAposSalvar();
     } catch (e) {
-        console.error(e);
-        alert("Erro ao salvar: " + e.message);
-    } finally {
-        btn.innerText = textoOriginal;
-        btn.disabled = false;
+        console.error("Erro ao salvar:", e);
+        alert("Erro ao salvar.");
     }
 }
 
-async function atualizarListaBanco() {
-    const select = document.getElementById("listaPacientesSalvos");
-    select.innerHTML = '<option value="">Carregando da Nuvem...</option>';
+async function carregarPacienteDoBanco() {
+    const id = document.getElementById("listaPacientesSalvos").value;
+    if (!id) return;
 
     try {
         const querySnapshot = await getDocs(collection(db, nomeColecao));
-        listaPacientesCache = [];
-        
-        select.innerHTML = '<option value="">Selecione um Paciente...</option>';
-
+        let paciente = null;
         querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            listaPacientesCache.push({ id: doc.id, ...data });
+            if (doc.id === id) paciente = doc.data();
         });
 
-        // Ordena por nome
-        listaPacientesCache.sort((a,b) => a.nome.localeCompare(b.nome));
+        if (paciente) {
+            document.getElementById("nomePaciente").value = paciente.nome;
+            document.getElementById("dataNasc").value = paciente.nascimento;
+            document.getElementById("dataAplicacao").value = paciente.dataAplicacao;
+            document.getElementById("testeSelecionado").value = paciente.testeSelecionado;
 
-        listaPacientesCache.forEach((p, index) => {
-            select.innerHTML += `<option value="${index}">${p.nome}</option>`;
-        });
+            // Preenche os textos
+            document.getElementById("viewAnalise1").innerHTML = `<p>${paciente.analise1.replace(/\n/g, "</p><p>")}</p>`;
+            document.getElementById("viewAnalise2").innerHTML = `<p>${paciente.analise2.replace(/\n/g, "</p><p>")}</p>`;
+            document.getElementById("viewConclusao").innerHTML = `<p>${paciente.conclusao.replace(/\n/g, "</p><p>")}</p>`;
+            
+            if (paciente.checklistData && paciente.checklistData.valores.length > 0) {
+                dados = paciente.checklistData;
+                atualizarGrafico();
+                document.getElementById("statusCheck").innerText = `Carregado. Média: ${dados.media}`;
+            }
 
+            atualizarRelatorio();
+        }
     } catch (e) {
         console.error(e);
-        select.innerHTML = '<option value="">Erro de conexão</option>';
-    }
-}
-
-function carregarPacienteDoBanco() {
-    const index = document.getElementById("listaPacientesSalvos").value;
-    if (index === "") {
-        limparFormulario();
-        return;
-    }
-
-    const p = listaPacientesCache[index];
-    if (p) {
-        pacienteAtualId = p.id; // Guarda o ID do Firestore
-        
-        // Preenche campos
-        document.getElementById("nomePaciente").value = p.nome;
-        document.getElementById("dataNasc").value = p.nasc;
-        document.getElementById("dataAplicacao").value = p.aplicacao;
-        document.getElementById("testeSelecionado").value = p.teste;
-
-        // Recupera dados
-        dados = p.dadosClinicos || { media: 0, valores: [], labels: [], teste: "" };
-
-        // Atualiza a tela
-        atualizarRelatorio();
-        if (dados.media > 0 && dados.valores.length > 0) {
-            document.getElementById("boxGrafico").style.display = "block";
-            renderizarGraficoLinha();
-            document.getElementById("statusCheck").innerText = "Carregado da Nuvem. Média: " + dados.media.toFixed(2);
-        }
     }
 }
 
 async function excluirPaciente() {
-    const index = document.getElementById("listaPacientesSalvos").value;
-    if (index === "") return alert("Selecione um paciente na lista para excluir.");
-
-    if (confirm("Tem certeza que deseja apagar este registro da nuvem permanentemente?")) {
-        const p = listaPacientesCache[index];
+    const id = document.getElementById("listaPacientesSalvos").value;
+    if (!id) return alert("Selecione um paciente para excluir.");
+    
+    if (confirm("Tem certeza que deseja excluir este registro?")) {
         try {
-            await deleteDoc(doc(db, nomeColecao, p.id));
-            alert("Paciente excluído.");
-            limparFormulario();
-            atualizarListaBanco();
+            await deleteDoc(doc(db, nomeColecao, id));
+            alert("Excluído!");
+            carregarListaPacientes();
+            limparCamposAposSalvar();
         } catch (e) {
-            alert("Erro ao excluir: " + e.message);
+            console.error(e);
         }
     }
 }
 
-function limparFormulario() {
-    pacienteAtualId = null;
+function limparCamposAposSalvar() {
     document.getElementById("nomePaciente").value = "";
     document.getElementById("dataNasc").value = "";
     document.getElementById("dataAplicacao").value = "";
     document.getElementById("testeSelecionado").value = "";
-    dados = { media: 0, valores: [], labels: [], teste: "" };
-    atualizarRelatorio();
-    document.getElementById("boxGrafico").style.display = "none";
-    if(graficoInstancia) graficoInstancia.destroy();
+    resetarDadosTeste();
 }
 
-/* ================= ATUALIZAÇÃO EM TEMPO REAL ================= */
+// Inicializa
+carregarListaPacientes();
+
+/* ================= FUNÇÕES DE INTERFACE ================= */
+
 function atualizarRelatorio() {
-    const nome = document.getElementById("nomePaciente").value;
-    const nasc = document.getElementById("dataNasc").value;
-    const apl = document.getElementById("dataAplicacao").value;
+    document.getElementById("viewNome").innerText = document.getElementById("nomePaciente").value.toUpperCase();
+    
+    const nas = document.getElementById("dataNasc").value;
+    document.getElementById("viewNasc").innerText = formatarData(nas);
+    
+    const appData = document.getElementById("dataAplicacao").value;
+    document.getElementById("viewData").innerText = formatarData(appData);
+
+    // CÁLCULO DA IDADE COM BASE NA DATA DE HOJE
+    if (nas) {
+        document.getElementById("viewIdade").innerText = calcularIdade(nas);
+    }
+
     const teste = document.getElementById("testeSelecionado").value;
-
-    document.getElementById("viewNome").innerText = nome ? nome.toUpperCase() : "______________________";
-    document.getElementById("viewNasc").innerText = formatarData(nasc);
-    document.getElementById("viewData").innerText = formatarData(apl);
-
-    if (nasc) {
-        const anos = new Date().getFullYear() - new Date(nasc).getFullYear();
-        document.getElementById("viewIdade").innerText = anos + " anos";
-    }
-
-    if (teste) {
-        const nomeTeste = document.getElementById("testeSelecionado").options[document.getElementById("testeSelecionado").selectedIndex].text;
-        
-        const textoMotivo = `
-A avaliação neuropsicológica constitui um procedimento de investigação clínica complexo e minucioso, cujo objetivo primordial transcende a mera aplicação de testes psicométricos. Visa, fundamentalmente, mapear o funcionamento cognitivo, comportamental e emocional do indivíduo, correlacionando-o com a integridade funcional do Sistema Nervoso Central. No presente caso, a solicitação deste psicodiagnóstico para o paciente <strong>${nome || "..."}</strong> fundamenta-se na necessidade clínica imperativa de investigar a etiologia das dificuldades adaptativas, acadêmicas e funcionais relatadas na anamnese inicial. Busca-se diferenciar se tais manifestações são de ordem pedagógica, emocional, ambiental ou se configuram um transtorno do neurodesenvolvimento de base biológica.
-
-Para atender a esta demanda com o rigor científico necessário, optou-se pela seleção e aplicação do instrumento padronizado <strong>${nomeTeste}</strong>. A escolha técnica deste teste justifica-se por suas robustas qualidades psicométricas de validade (capacidade de medir o que se propõe) e fidedignidade (consistência dos resultados), sendo este reconhecido internacionalmente pela comunidade científica como padrão-ouro para o rastreio de habilidades cognitivas e funções executivas nesta faixa etária. O instrumento permite uma análise fatorial não apenas do resultado global, mas das discrepâncias sutis entre os índices de compreensão verbal, raciocínio fluido, memória operacional e velocidade de processamento.
-
-Ressalta-se que a aplicação deste protocolo obedeceu rigorosamente às normativas vigentes do Conselho Federal de Psicologia (CFP) e aos padrões internacionais de testagem (ITC). O procedimento ocorreu em ambiente controlado, livre de distratores visuais e auditivos, sob condições ideais de iluminação e ventilação, visando garantir que o desempenho obtido reflita, com a maior precisão possível, a capacidade real e o potencial cognitivo do avaliando. A análise aqui proposta integra dados quantitativos a observações qualitativas da conduta, como tolerância à frustração, persistência na tarefa e estratégias metacognitivas utilizadas para a resolução de problemas.`;
-
-        document.getElementById("viewMotivo").innerHTML = `<p>${textoMotivo.replace(/\n/g, "</p><p>")}</p>`;
-
-        if (dados.media > 0) gerarAnaliseTecnica(nomeTeste);
-    }
-}
-
-/* ================= GERADOR DE ANÁLISE PROFUNDA ================= */
-function gerarAnaliseTecnica(nomeTeste) {
-    const media = dados.media;
+    const motivoDiv = document.getElementById("viewMotivo");
     
-    let diagnostico, suporte, perfil;
-    if (media >= 1.7) {
-        diagnostico = "DENTRO DA MÉDIA ESPERADA (Desenvolvimento Típico)";
-        suporte = "monitoramento padrão";
-        perfil = "preservado e funcional";
-    } else if (media >= 1.3) {
-        diagnostico = "DEFICIÊNCIA INTELECTUAL LEVE (F70 / 6A00.0)";
-        suporte = "suporte intermitente e adaptações curriculares";
-        perfil = "com defasagens leves a moderadas";
-    } else if (media >= 0.7) {
-        diagnostico = "DEFICIÊNCIA INTELECTUAL MODERADA (F71 / 6A00.1)";
-        suporte = "suporte substancial e contínuo";
-        perfil = "com prejuízos significativos na autonomia";
-    } else {
-        diagnostico = "DEFICIÊNCIA INTELECTUAL SEVERA (F72 / 6A00.2)";
-        suporte = "suporte muito substancial e supervisão constante";
-        perfil = "com dependência funcional importante";
+    if (teste && textosPadrao[teste]) {
+        if (motivoDiv.innerText.includes("Preencha") || motivoDiv.innerText.trim() === "") {
+             motivoDiv.innerHTML = `<p>${textosPadrao[teste].motivo.replace(/\n/g, "</p><p>")}</p>`;
+        }
     }
-
-    let falhasDescricao = [];
-    dados.valores.forEach((v, i) => {
-        if (v === 0 && dicionario[dados.teste]) falhasDescricao.push(dicionario[dados.teste].desc[i]);
-    });
-
-    const textoAnalise = `
-A análise quantitativa dos dados brutos, devidamente convertidos em escores ponderados e comparados à tabela normativa correspondente à idade cronológica do avaliando, revela um perfil de funcionamento cognitivo que merece atenção detalhada. No protocolo do <strong>${nomeTeste}</strong>, o examinando obteve uma média global de desempenho de <strong>${media.toFixed(2)}</strong> (em uma escala clínica de 0 a 2). Estatisticamente, este índice situa o funcionamento intelectual geral na faixa classificada como <strong>${diagnostico}</strong>.
-
-É imprescindível direcionar a atenção para a representação visual dos dados apresentada na <strong>Figura 1 (Gráfico Comparativo de Desempenho)</strong>, localizada acima. A linha azul contínua, que representa o desempenho obtido pelo paciente, deve ser comparada à linha cinza tracejada, que estabelece o teto esperado (desempenho ideal/normativo). A distância vetorial entre estas duas linhas ilustra, de forma clara e objetiva, o "gap" (lacuna) de desenvolvimento existente no momento atual. Observa-se que a curva de desempenho do paciente não é linear, apresentando oscilações que denotam um perfil cognitivo ${falhasDescricao.length > 0 ? "heterogêneo e disfuncional em áreas específicas" : "homogêneo, porém globalmente rebaixado"}.
-
-Aprofundando a interpretação neuropsicológica dos subtestes, nota-se que as funções que dependem de recrutamento imediato da memória operacional e da velocidade de processamento foram as mais impactadas. ${falhasDescricao.length > 0 ? `Especificamente, os resultados pontuaram déficits críticos (escore 0) nas habilidades de: <strong>${falhasDescricao.join("; ")}</strong>.` : "Embora não haja falhas totais (zeros), o desempenho foi limítrofe em várias áreas."} O rebaixamento nestes domínios sugere uma dificuldade intrínseca no processamento eficiente de informações complexas. Isso implica que o paciente, embora possa compreender conceitos isolados, falha na integração e na generalização desses conceitos para novas situações sem a devida mediação externa. A análise do gráfico corrobora a hipótese de que a capacidade de abstração e o raciocínio fluido estão comprometidos, o que justifica as dificuldades acadêmicas e adaptativas observadas na vida diária.`;
-
-    document.getElementById("viewAnalise1").innerHTML = `<p>${textoAnalise.replace(/\n/g, "</p><p>")}</p>`;
-    document.getElementById("viewAnalise2").innerHTML = ""; 
-
-    const encamEscola = `
-<strong>1. ÂMBITO ESCOLAR E PEDAGÓGICO:</strong><br>
-É imperativa a implementação e revisão constante de um Plano de Ensino Individualizado (PEI/PDI), conforme previsto na Lei Brasileira de Inclusão. O currículo deve ser adaptado não apenas em volume, mas na natureza da apresentação do conteúdo. Recomenda-se priorizar o ensino de competências funcionais que tenham aplicação prática na vida do estudante. O material didático deve ser enriquecido com pistas visuais, organizadores gráficos e recursos concretos, minimizando a dependência exclusiva de explicações verbais abstratas que sobrecarregam a memória de trabalho. As avaliações devem ser flexibilizadas, permitindo tempo estendido (fator 1.5x), realização em sala separada para reduzir distratores e, se necessário, auxílio de ledor/transcritor. É fundamental a presença de um mediador ou tutor em momentos de transição ou atividades complexas para auxiliar no planejamento e execução das tarefas.`;
-
-    const encamClinica = `
-<strong>2. ÂMBITO CLÍNICO E REABILITAÇÃO:</strong><br>
-Indica-se o início imediato de um programa de Estimulação ou Reabilitação Neuropsicológica com frequência mínima semanal. O foco terapêutico deve centrar-se no fortalecimento das Funções Executivas, especificamente no treino de controle inibitório, flexibilidade cognitiva e memória operacional, áreas apontadas como deficitárias no teste. Paralelamente, sugere-se avaliação e acompanhamento em Psicoterapia (preferencialmente Abordagem Cognitivo-Comportamental) para trabalhar questões de regulação emocional, tolerância à frustração e autoestima, frequentemente abaladas pela percepção das próprias dificuldades. Caso haja comorbidades atencionais ou ansiosas, a avaliação com Neuropediatria ou Psiquiatria Infantil torna-se indispensável para considerar a necessidade de suporte farmacológico.`;
-
-    const encamFamilia = `
-<strong>3. ÂMBITO FAMILIAR E SOCIAL:</strong><br>
-A família deve atuar como co-terapeuta no ambiente doméstico, estruturando uma rotina previsível que ofereça segurança ao paciente. É essencial estimular a autonomia em Atividades de Vida Diária (AVDs), como higiene pessoal, alimentação, vestuário e pequenas tarefas domésticas, evitando a superproteção que impede o desenvolvimento de competências. Recomenda-se o uso de quadros de rotina visual e sistemas de economia de fichas (recompensas) para reforçar comportamentos positivos. No âmbito social, deve-se fomentar a participação em atividades extracurriculares estruturadas (esportes, artes, música) que permitam a interação com pares em um contexto não-acadêmico, fortalecendo as habilidades sociais e o senso de pertencimento, fundamentais para o bem-estar emocional.`;
-
-    document.getElementById("viewEncaminhamentos").innerHTML = `<p>${encamEscola}</p><p>${encamClinica}</p><p>${encamFamilia}</p>`;
-
-    const textoConclusao = `
-Diante de todo o exposto, a integração dos dados colhidos na anamnese, das observações clínicas comportamentais e dos resultados quantitativos e qualitativos obtidos através da avaliação neuropsicológica permite concluir que o perfil do examinando <strong>${document.getElementById("nomePaciente").value}</strong> é compatível com a hipótese diagnóstica de <strong>${diagnostico}</strong>.
-
-É fundamental ressaltar que este diagnóstico não constitui uma sentença de incapacidade estática, mas sim um descritor clínico funcional que serve para orientar a rede de apoio sobre o nível de exigência e o tipo de suporte que o indivíduo necessita. O cérebro em desenvolvimento possui neuroplasticidade, e o prognóstico é considerado favorável, estando diretamente condicionado à precocidade, consistência e qualidade das intervenções multidisciplinares implementadas. Sem o suporte adequado, há risco de agravamento das defasagens e prejuízos secundários na saúde mental; contudo, com as adaptações sugeridas, vislumbra-se um potencial significativo de ganho de autonomia e funcionalidade.
-
-O perfil gráfico evidenciou áreas de força que devem ser utilizadas como alavancas para a aprendizagem, bem como áreas de vulnerabilidade que demandam proteção e treino específico. A classificação de nível de suporte sugere a necessidade de <strong>${suporte}</strong> para garantir a participação efetiva do avaliando na sociedade.
-
-Recomenda-se fortemente uma reavaliação neuropsicológica de controle em um período de aproximadamente 18 a 24 meses. Este novo corte transversal servirá para monitorar a curva de desenvolvimento, verificar a eficácia das intervenções terapêuticas e pedagógicas aplicadas e atualizar as condutas conforme a maturação neurológica ocorra. Este documento é de caráter sigiloso, técnico e extrajudicial, elaborado conforme os princípios éticos da profissão, devendo ser utilizado estritamente em benefício do avaliando para fins de encaminhamento clínico, escolar e previdenciário.`;
-
-    document.getElementById("viewConclusao").innerHTML = `<p>${textoConclusao.replace(/\n/g, "</p><p>")}</p>`;
 }
 
-/* ================= FUNÇÕES DE INTERFACE (MODAL & CHECKLIST) ================= */
+function resetarDadosTeste() {
+    dados = { media: 0, valores: [], labels: [], teste: "" };
+    if (chartInstance) {
+        chartInstance.destroy();
+        chartInstance = null;
+    }
+    document.getElementById("boxGrafico").style.display = 'none';
+    document.getElementById("statusCheck").innerText = "Aguardando dados...";
+    
+    document.getElementById("viewMotivo").innerHTML = '<p class="placeholder">[Preencha o nome e selecione o teste...]</p>';
+    document.getElementById("viewAnalise1").innerHTML = '<p class="placeholder">[Aguardando Checklist...]</p>';
+    document.getElementById("viewAnalise2").innerHTML = '';
+    document.getElementById("viewConclusao").innerHTML = '<p class="placeholder">[Aguardando Análise...]</p>';
+    document.getElementById("viewEncaminhamentos").innerHTML = '<p class="placeholder">[Aguardando Análise...]</p>';
+    
+    atualizarRelatorio();
+}
+
+// CÁLCULO PRECISO DA IDADE: HOJE - NASCIMENTO
+function calcularIdade(nascimento) {
+    if (!nascimento) return "";
+    const n = new Date(nascimento);
+    const hoje = new Date(); // Data atual
+    
+    let anos = hoje.getFullYear() - n.getFullYear();
+    let meses = hoje.getMonth() - n.getMonth();
+    let dias = hoje.getDate() - n.getDate();
+
+    // Ajuste se o mês ainda não virou
+    if (dias < 0) {
+        meses--;
+    }
+    // Ajuste se o ano ainda não virou (aniversário não chegou)
+    if (meses < 0) {
+        anos--;
+        meses += 12;
+    }
+    
+    return `${anos} anos e ${meses} meses`;
+}
+
 function abrirChecklist() {
-    const t = document.getElementById("testeSelecionado").value;
-    if (!t) return alert("Por favor, selecione um instrumento de teste primeiro.");
-    
-    dados.teste = t;
-    const lista = document.getElementById("listaChecklist");
-    lista.innerHTML = "";
-    
-    dicionario[t].itens.forEach((item, i) => {
-        // Se já houver valor salvo, seleciona ele, senão 2
-        let valAtual = (dados.valores && dados.valores[i] !== undefined) ? dados.valores[i] : 2;
+    const teste = document.getElementById("testeSelecionado").value;
+    if (!teste) return alert("Selecione um instrumento primeiro!");
+
+    const lista = checklists[teste];
+    if (!lista) return alert("Checklist não configurado para este teste.");
+
+    const divLista = document.getElementById("listaChecklist");
+    divLista.innerHTML = "";
+
+    lista.forEach((item, index) => {
+        const row = document.createElement("div");
+        row.className = "chk-item";
         
-        lista.innerHTML += `
-            <div class="chk-item">
-                <span style="font-weight:600; font-size:14px;">${item}</span>
-                <select id="val_${i}" style="padding:5px;">
-                    <option value="2" ${valAtual == 2 ? 'selected' : ''}>2 - Preservado/Adequado</option>
-                    <option value="1" ${valAtual == 1 ? 'selected' : ''}>1 - Parcial/Dificuldade</option>
-                    <option value="0" ${valAtual == 0 ? 'selected' : ''}>0 - Déficit/Inadequado</option>
-                </select>
-            </div>`;
+        const label = document.createElement("span");
+        label.innerText = item;
+        
+        const sel = document.createElement("select");
+        sel.id = `chk_${index}`;
+        
+        const op0 = new Option("0 - Déficit / Prejuízo", "0");
+        const op1 = new Option("1 - Parcial / Discrepante", "1");
+        const op2 = new Option("2 - Preservado / Adequado", "2");
+        op2.selected = true;
+
+        sel.add(op0); sel.add(op1); sel.add(op2);
+        
+        row.appendChild(label);
+        row.appendChild(sel);
+        divLista.appendChild(row);
     });
+
     document.getElementById("modalChecklist").style.display = "flex";
 }
 
 function salvarChecklist() {
-    const itens = dicionario[dados.teste].itens;
-    let soma = 0, vals = [];
+    const teste = document.getElementById("testeSelecionado").value;
+    const lista = checklists[teste];
     
-    itens.forEach((_, i) => {
-        let v = parseInt(document.getElementById(`val_${i}`).value);
-        soma += v;
-        vals.push(v);
+    dados.valores = [];
+    dados.labels = lista;
+    dados.teste = teste;
+
+    let soma = 0;
+    
+    lista.forEach((_, index) => {
+        const val = parseInt(document.getElementById(`chk_${index}`).value);
+        dados.valores.push(val);
+        soma += val;
     });
 
-    dados.media = soma / itens.length;
-    dados.valores = vals;
-    dados.labels = itens;
+    dados.media = (soma / lista.length).toFixed(2);
 
     document.getElementById("modalChecklist").style.display = "none";
-    document.getElementById("statusCheck").innerText = "Processado. Média: " + dados.media.toFixed(2);
-    document.getElementById("boxGrafico").style.display = "block";
+    document.getElementById("statusCheck").innerText = `Gráfico Gerado! Média: ${dados.media}`;
     
-    atualizarRelatorio();
-    renderizarGraficoLinha();
+    atualizarGrafico();
+    gerarTextoAutomatico();
 }
 
-/* ================= GRÁFICO DE LINHA ================= */
-function renderizarGraficoLinha() {
+/* ================= GERADOR DE TEXTO DINÂMICO E DIAGNÓSTICO (ATUALIZADO) ================= */
+function gerarTextoAutomatico() {
+    const t = textosPadrao[dados.teste];
+    if (!t) return;
+
+    let analiseTexto = t.analise;
+    let conclusaoTexto = t.conclusao;
+    let hipoteseDI = "";
+    let resultadoProg = "";
+    let desempenho3 = "";
+
+    // LÓGICA DE DIAGNÓSTICO DE DI (NEGRITO, CAIXA ALTA E CID)
+    if (dados.media >= 1.6) {
+        // Típico
+        analiseTexto = analiseTexto.replace("[DESEMPENHO]", "preservado e dentro da média normativa").replace("[DESEMPENHO2]", "habilidades robustas e funcionais");
+        desempenho3 = "adequada, permitindo fluxo de pensamento ágil";
+        
+        hipoteseDI = "<strong>DESENVOLVIMENTO NEUROPSICOMOTOR TÍPICO (Z76.8)</strong>";
+        resultadoProg = "muito favorável";
+
+    } else if (dados.media >= 1.2) {
+        // Limítrofe
+        analiseTexto = analiseTexto.replace("[DESEMPENHO]", "na zona limítrofe inferior").replace("[DESEMPENHO2]", "discrepâncias que geram esforço cognitivo");
+        desempenho3 = "lenta, impactando a fluidez em tarefas";
+        
+        hipoteseDI = "<strong>DIFICULDADE DE APRENDIZAGEM / INTELECTO LIMÍTROFE (R41.8)</strong>";
+        resultadoProg = "favorável, mediante suporte psicopedagógico";
+
+    } else if (dados.media >= 0.7) {
+        // DI Leve
+        analiseTexto = analiseTexto.replace("[DESEMPENHO]", "abaixo da média esperada (Rebaixado)").replace("[DESEMPENHO2]", "prejuízos evidentes na abstração");
+        desempenho3 = "muito lenta, gerando sobrecarga cognitiva";
+        
+        hipoteseDI = "<strong>DEFICIÊNCIA INTELECTUAL LEVE (F70)</strong>";
+        resultadoProg = "dependente de estimulação contínua";
+
+    } else {
+        // DI Moderada a Grave
+        analiseTexto = analiseTexto.replace("[DESEMPENHO]", "significativamente rebaixado (Déficit Severo)").replace("[DESEMPENHO2]", "prejuízos graves generalizados");
+        desempenho3 = "comprometida, inviabilizando tarefas sem ajuda";
+        
+        hipoteseDI = "<strong>DEFICIÊNCIA INTELECTUAL MODERADA (F71)</strong>";
+        resultadoProg = "reservado, focado em AVDs";
+    }
+
+    // Substituições finais no texto
+    analiseTexto = analiseTexto.replace("[DESEMPENHO3]", desempenho3);
+    
+    // Insere o diagnóstico FORMATADO (Negrito/Caixa Alta/CID)
+    conclusaoTexto = conclusaoTexto.replace("[HIPOTESE]", hipoteseDI).replace("[RESULTADO]", resultadoProg);
+
+    document.getElementById("viewAnalise1").innerHTML = `<p>${analiseTexto.replace(/\n/g, "</p><p>")}</p>`;
+    document.getElementById("viewConclusao").innerHTML = `<p>${conclusaoTexto.replace(/\n/g, "</p><p>")}</p>`;
+    
+    let encam = `
+    <p>Diante do exposto, sugere-se a seguinte conduta multidisciplinar para otimização do quadro:</p>
+    
+    <p><strong>1. Âmbito Escolar e Pedagógico:</strong><br>
+    É imperativa a implementação e revisão constante de um Plano de Ensino Individualizado (PEI/PDI), conforme previsto na Lei Brasileira de Inclusão. O currículo deve ser adaptado não apenas em volume, mas na natureza da apresentação do conteúdo. Recomenda-se priorizar o ensino de competências funcionais que tenham aplicação prática. O material deve ser enriquecido com pistas visuais, organizadores gráficos e recursos concretos, minimizando a dependência exclusiva de explicações verbais abstratas. As avaliações devem ser flexibilizadas (tempo estendido fator 1.5x e sala separada).</p>
+
+    <p><strong>2. Âmbito Clínico e Reabilitação:</strong><br>
+    Indica-se o início/manutenção de Estimulação Neuropsicológica com frequência semanal. O foco terapêutico deve centrar-se no fortalecimento das Funções Executivas, especificamente controle inibitório e memória operacional. Paralelamente, sugere-se avaliação em Psicoterapia para trabalhar questões de regulação emocional e autoestima, frequentemente abaladas pela percepção das próprias dificuldades.</p>
+
+    <p><strong>3. Âmbito Familiar e Social:</strong><br>
+    A família deve atuar como co-terapeuta, estruturando uma rotina previsível que ofereça segurança. É essencial estimular a autonomia em Atividades de Vida Diária (AVDs), como higiene e alimentação, evitando a superproteção. Recomenda-se o uso de quadros de rotina visual e fomento à participação em atividades extracurriculares estruturadas para fortalecimento de habilidades sociais.</p>
+    
+    <p><strong>4. Orientações Jurídicas e Sociais (Se Aplicável):</strong><br>
+    Considerando o perfil de ${hipoteseDI}, orienta-se a família a buscar informações sobre os direitos assegurados pela legislação vigente (Estatuto da Pessoa com Deficiência), incluindo isenções, benefícios de prestação continuada (BPC) caso preencham os critérios socioeconômicos, e carteira de identificação para prioridade de atendimento.</p>`;
+    
+    document.getElementById("viewEncaminhamentos").innerHTML = encam;
+}
+
+/* ================= GRÁFICO (Chart.js) ================= */
+function atualizarGrafico() {
     const ctx = document.getElementById("graficoLinha").getContext("2d");
-    if (graficoInstancia) graficoInstancia.destroy();
+    document.getElementById("boxGrafico").style.display = "block";
 
-    const dadosIdeal = dados.labels.map(() => 2);
+    if (chartInstance) chartInstance.destroy();
 
-    graficoInstancia = new Chart(ctx, {
-        type: 'line', 
+    const baseIdeal = new Array(dados.valores.length).fill(2);
+
+    chartInstance = new Chart(ctx, {
+        type: 'line',
         data: {
             labels: dados.labels,
             datasets: [
                 {
-                    label: 'Desempenho do Paciente',
+                    label: 'Paciente',
                     data: dados.valores,
                     borderColor: '#0056b3',
                     backgroundColor: 'rgba(0, 86, 179, 0.1)',
-                    borderWidth: 3,
-                    pointRadius: 6,
-                    pointBackgroundColor: '#fff',
-                    pointBorderColor: '#0056b3',
-                    tension: 0.3,
+                    borderWidth: 2,
+                    pointBackgroundColor: '#0056b3',
+                    pointRadius: 5,
+                    tension: 0.2,
                     fill: true
                 },
                 {
-                    label: 'Desempenho Esperado',
-                    data: dadosIdeal,
-                    borderColor: '#888',
+                    label: 'Esperado',
+                    data: baseIdeal,
+                    borderColor: '#999',
+                    borderDash: [5, 5],
                     borderWidth: 2,
-                    borderDash: [10, 5],
                     pointRadius: 0,
-                    pointHoverRadius: 0,
-                    fill: false,
-                    tension: 0
+                    fill: false
                 }
             ]
         },
@@ -396,18 +513,24 @@ function renderizarGraficoLinha() {
             maintainAspectRatio: false,
             scales: {
                 y: {
-                    min: 0,
+                    min: -1, 
                     max: 2.5,
                     ticks: {
                         stepSize: 1,
                         callback: function(v) {
-                            if (v == 0) return "Déficit (0)";
-                            if (v == 1) return "Parcial (1)";
-                            if (v == 2) return "Preservado (2)";
+                            if (v === 0) return "Déficit (0)";
+                            if (v === 1) return "Parcial (1)";
+                            if (v === 2) return "Preservado (2)";
+                            return "";
                         },
                         font: { size: 11, weight: 'bold' }
                     },
-                    grid: { color: '#e0e0e0' }
+                    grid: { 
+                        color: function(context) {
+                            if (context.tick.value === 0) return '#666'; 
+                            return '#e0e0e0';
+                        } 
+                    }
                 },
                 x: {
                     grid: { display: false },
@@ -415,19 +538,7 @@ function renderizarGraficoLinha() {
                 }
             },
             plugins: {
-                legend: { position: 'bottom', labels: { usePointStyle: true } },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) { label += ': '; }
-                            if (context.parsed.y === 0) return label + "Déficit Grave";
-                            if (context.parsed.y === 1) return label + "Dificuldade Parcial";
-                            if (context.parsed.y === 2) return label + "Habilidade Preservada";
-                            return label + context.parsed.y;
-                        }
-                    }
-                }
+                legend: { position: 'bottom' }
             }
         }
     });
@@ -437,6 +548,3 @@ function formatarData(d) {
     if (!d) return "--/--/----";
     return d.split("-").reverse().join("/");
 }
-
-// Inicializa a lista de pacientes ao abrir
-atualizarListaBanco();
