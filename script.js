@@ -1,3 +1,8 @@
+// ===== Build/version marker =====
+const __MANAINSYS_VERSION = "20260107_01";
+window.__MANAINSYS_VERSION = __MANAINSYS_VERSION;
+console.log("Manain Sys script version:", __MANAINSYS_VERSION);
+
 /* ================= FIREBASE (APP/DB/AUTH) ================= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
@@ -9,18 +14,20 @@ import {
   doc,
   deleteDoc,
   updateDoc,
-  query,
-  where,
+  query, 
   orderBy,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 import {
-  getAuth,
+getAuth,
   GoogleAuthProvider,
   signInWithPopup,
   onAuthStateChanged,
-  signOut
+  signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -45,6 +52,11 @@ let dados = { media: 0, valores: [], labels: [], teste: "" };
 let chartInstance = null;
 
 /* ================= EXPORTA FUNÇÕES PARA HTML ================= */
+window.fazerLoginEmailSenha = fazerLoginEmailSenha;
+window.criarContaEmailSenha = criarContaEmailSenha;
+window.recuperarSenhaEmail = recuperarSenhaEmail;
+window.enviarLinkRedefinirSenha = enviarLinkRedefinirSenha;
+
 window.fazerLoginGoogle = fazerLoginGoogle;
 window.fazerLogout = fazerLogout;
 
@@ -57,6 +69,98 @@ window.abrirChecklist = abrirChecklist;
 window.salvarChecklist = salvarChecklist;
 window.fecharChecklist = fecharChecklist;
 window.resetarDadosTeste = resetarDadosTeste;
+
+window.abrirModalCadastro = abrirModalCadastro;
+window.fecharModalCadastro = fecharModalCadastro;
+window.abrirModalRecuperarSenha = abrirModalRecuperarSenha;
+window.fecharModalRecuperarSenha = fecharModalRecuperarSenha;
+
+
+/* ================= LOGIN: MODAIS + LIMPEZA ================= */
+let __keepEmailAfterCreate = false;
+
+function limparCamposLogin(opts = {}) {
+  const keepEmail = !!opts.keepEmail;
+
+  const ids = ["emailLogin","senhaLogin","cadEmail","cadSenha","cadSenha2","recEmail"];
+    ids.forEach((id) => {
+    if (keepEmail && id === "emailLogin") return;
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+
+  const err = document.getElementById("loginError");
+  if (err) err.textContent = "";
+
+  const cadErr = document.getElementById("cadError");
+  if (cadErr) cadErr.textContent = "";
+
+  const recErr = document.getElementById("recError");
+  if (recErr) recErr.textContent = "";
+}
+
+function abrirModalCadastro() {
+  const modal = document.getElementById("modalCadastro");
+  if (!modal) return;
+
+  // reaproveita o e-mail digitado no login, se houver
+  const emailBase = (document.getElementById("emailLogin")?.value || "").trim();
+  const cadEmail = document.getElementById("cadEmail");
+  if (cadEmail && emailBase && !cadEmail.value) cadEmail.value = emailBase;
+
+  const cadErr = document.getElementById("cadError");
+  if (cadErr) cadErr.textContent = "";
+
+  modal.style.display = "flex";
+  setTimeout(() => document.getElementById("cadEmail")?.focus(), 50);
+}
+
+function fecharModalCadastro() {
+  const modal = document.getElementById("modalCadastro");
+  if (!modal) return;
+  modal.style.display = "none";
+  // limpa apenas campos do modal
+  ["cadEmail","cadSenha","cadSenha2"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+  const cadErr = document.getElementById("cadError");
+  if (cadErr) cadErr.textContent = "";
+}
+
+function abrirModalRecuperarSenha() {
+  const modal = document.getElementById("modalRecuperarSenha");
+  if (!modal) return;
+
+  const emailBase = (document.getElementById("emailLogin")?.value || "").trim();
+  const recEmail = document.getElementById("recEmail");
+  if (recEmail && emailBase && !recEmail.value) recEmail.value = emailBase;
+
+  const recErr = document.getElementById("recError");
+  if (recErr) recErr.textContent = "";
+
+  modal.style.display = "flex";
+  setTimeout(() => document.getElementById("recEmail")?.focus(), 50);
+}
+
+function fecharModalRecuperarSenha() {
+  const modal = document.getElementById("modalRecuperarSenha");
+  if (!modal) return;
+  modal.style.display = "none";
+  const recEmail = document.getElementById("recEmail");
+  if (recEmail) recEmail.value = "";
+  const recErr = document.getElementById("recError");
+  if (recErr) recErr.textContent = "";
+}
+
+// fecha modal ao clicar fora do card
+document.addEventListener("click", (e) => {
+  const m1 = document.getElementById("modalCadastro");
+  if (m1 && m1.style.display === "flex" && e.target === m1) fecharModalCadastro();
+
+  const m2 = document.getElementById("modalRecuperarSenha");
+  if (m2 && m2.style.display === "flex" && e.target === m2) fecharModalRecuperarSenha();
+});
 
 /* ================= CHECKLISTS ================= */
 const checklists = {
@@ -207,12 +311,154 @@ Evidencia-se a necessidade de um Nível de Suporte [RESULTADO] (variando de Inte
     }
 };
 /* ================= AUTH ================= */
+
+/* ================= AUTH: E-MAIL/SENHA (LOGIN/CADASTRO/RECUPERAÇÃO) ================= */
+function traduzirErroAuth(code) {
+  const map = {
+    "auth/invalid-email": "E-mail inválido.",
+    "auth/missing-password": "Informe a senha.",
+    "auth/user-not-found": "Usuário não encontrado.",
+    "auth/wrong-password": "Senha incorreta.",
+    "auth/email-already-in-use": "Este e-mail já está em uso.",
+    "auth/weak-password": "Senha fraca (mínimo 6 caracteres).",
+    "auth/too-many-requests": "Muitas tentativas. Tente novamente mais tarde.",
+    "auth/invalid-credential": "Credenciais inválidas. Verifique e-mail e senha (ou crie a conta)."
+  };
+  return map[code] || "Erro de autenticação. Tente novamente.";
+}
+
+async function fazerLoginEmailSenha() {
+  const errEl = document.getElementById("loginError");
+  if (errEl) errEl.textContent = "";
+
+  const email = (document.getElementById("emailLogin")?.value || "").trim();
+  const senha = document.getElementById("senhaLogin")?.value || "";
+
+  if (!email || !senha) {
+    if (errEl) errEl.textContent = "Preencha e-mail e senha.";
+    return;
+  }
+
+  try {
+    // evita conflito quando o usuário alterna métodos de login
+    if (auth.currentUser) await signOut(auth);
+
+    await signInWithEmailAndPassword(auth, email, senha);
+    limparCamposLogin();
+  } catch (e) {
+    console.error("LOGIN EMAIL ERRO:", e);
+    if (errEl) errEl.textContent = traduzirErroAuth(e.code);
+    else alert(traduzirErroAuth(e.code));
+  }
+}
+
+async function criarContaEmailSenha() {
+
+  // este fluxo acontece pelo MODAL "Criar conta"
+  const errEl = document.getElementById("cadError");
+  if (errEl) errEl.textContent = "";
+
+  const email = (document.getElementById("cadEmail")?.value || "").trim();
+  const senha = document.getElementById("cadSenha")?.value || "";
+  const senha2 = document.getElementById("cadSenha2")?.value || "";
+
+  if (!email || !senha || !senha2) {
+    if (errEl) errEl.textContent = "Preencha e-mail e senha.";
+    return;
+  }
+  if (senha.length < 6) {
+    if (errEl) errEl.textContent = "A senha deve ter no mínimo 6 caracteres.";
+    return;
+  }
+  if (senha !== senha2) {
+    if (errEl) errEl.textContent = "As senhas não coincidem.";
+    return;
+  }
+
+  try {
+    // evita conflito quando o usuário alterna métodos de login
+    if (auth.currentUser) await signOut(auth);
+
+    // cria a conta (Firebase normalmente loga automaticamente)
+    await createUserWithEmailAndPassword(auth, email, senha);
+
+    // ✅ você pediu: voltar para a tela de login para o usuário entrar manualmente
+    __keepEmailAfterCreate = true; // preserva o e-mail digitado ao "voltar"
+    await signOut(auth);           // sai imediatamente (mantém conta criada)
+
+    // fecha modal e preenche e-mail no login
+    fecharModalCadastro();
+    const emailLogin = document.getElementById("emailLogin");
+    if (emailLogin) emailLogin.value = email;
+
+    // limpa só senha do login
+    const senhaLogin = document.getElementById("senhaLogin");
+    if (senhaLogin) senhaLogin.value = "";
+
+    // mensagem na tela de login
+    const loginErr = document.getElementById("loginError");
+    if (loginErr) loginErr.textContent = "Conta criada com sucesso. Agora faça login.";
+
+    // garante foco no campo de senha
+    setTimeout(() => document.getElementById("senhaLogin")?.focus(), 80);
+  } catch (e) {
+    console.error("CRIAR CONTA ERRO:", e);
+    if (errEl) errEl.textContent = traduzirErroAuth(e.code);
+    else alert(traduzirErroAuth(e.code));
+  }
+
+}
+
+async function recuperarSenhaEmail() {
+
+  // este fluxo agora acontece pelo MODAL "Recuperar senha"
+  const errEl = document.getElementById("recError");
+  if (errEl) errEl.textContent = "";
+
+  const email = (document.getElementById("recEmail")?.value || "").trim();
+  if (!email) {
+    if (errEl) errEl.textContent = "Informe o e-mail para recuperação.";
+    return;
+  }
+
+  try {
+    await sendPasswordResetEmail(auth, email);
+    if (errEl) errEl.textContent = "Link enviado. Verifique sua caixa de entrada.";
+
+    // limpa e fecha
+    setTimeout(() => {
+      fecharModalRecuperarSenha();
+      limparCamposLogin();
+    }, 400);
+  } catch (e) {
+    console.error("RECUPERAR SENHA ERRO:", e);
+    if (errEl) errEl.textContent = traduzirErroAuth(e.code);
+    else alert(traduzirErroAuth(e.code));
+  }
+
+}
+
+/* Botão “Alterar senha” (usuário faz sozinho via e-mail) */
+async function enviarLinkRedefinirSenha() {
+  if (!auth.currentUser || !auth.currentUser.email) {
+    alert("Você precisa estar logado para alterar a senha.");
+    return;
+  }
+  try {
+    await sendPasswordResetEmail(auth, auth.currentUser.email);
+    alert("Enviamos um link de alteração de senha para o seu e-mail.");
+  } catch (e) {
+    alert(traduzirErroAuth(e.code));
+  }
+}
+
 async function fazerLoginGoogle() {
   const errEl = document.getElementById("loginError");
   if (errEl) errEl.textContent = "";
 
   try {
     await signInWithPopup(auth, provider);
+    limparCamposLogin();
   } catch (err) {
     console.error("LOGIN ERRO:", err.code, err.message);
     if (errEl) errEl.textContent = `Erro: ${err.message}`;
@@ -245,13 +491,20 @@ onAuthStateChanged(auth, async (user) => {
   if (!overlay || !appMain) return;
 
   if (user) {
+    limparCamposLogin();
     overlay.style.display = "none";
     appMain.style.display = "flex";
     if (badge) badge.textContent = user.email || user.displayName || "Logado";
 
     // ao logar, carrega lista
-    await carregarListaPacientes();
+    try {
+      await carregarListaPacientes();
+    } catch (e) {
+      console.error('Falha ao carregar lista após login:', e);
+    }
   } else {
+    limparCamposLogin({ keepEmail: __keepEmailAfterCreate });
+    __keepEmailAfterCreate = false;
     overlay.style.display = "flex";
     appMain.style.display = "none";
     if (badge) badge.textContent = "—";
@@ -272,6 +525,10 @@ function limparSelect() {
 
 async function carregarListaPacientes() {
   if (!exigirLogin()) return;
+  // ✅ Evita listar enquanto o overlay de login ainda está visível (troca de sessão/token)
+  const overlay = document.getElementById("loginOverlay");
+  if (overlay && overlay.style.display !== "none") return;
+
 
   const select = document.getElementById("listaPacientesSalvos");
   const status = document.getElementById("statusCheck");
@@ -280,7 +537,7 @@ async function carregarListaPacientes() {
   select.innerHTML = '<option value="">Carregar Paciente...</option>';
 
   try {
-    // agora lista todos os pacientes da coleção, independente do usuário
+    // lista TODOS os registros (qualquer usuário autenticado)
     const q = query(
       collection(db, nomeColecao),
       orderBy("updatedAt", "desc")
@@ -304,7 +561,6 @@ async function carregarListaPacientes() {
     alert(`Erro ao listar: ${e.code || ""} ${e.message || ""}`);
   }
 }
-
 
 async function salvarPaciente() {
   if (!exigirLogin()) return;
@@ -372,7 +628,6 @@ async function carregarPacienteDoBanco() {
     }
 
     const paciente = snap.data();
-
     document.getElementById("nomePaciente").value = paciente.nome || "";
     document.getElementById("dataNasc").value = paciente.nascimento || "";
     document.getElementById("dataAplicacao").value = paciente.dataAplicacao || "";
@@ -412,7 +667,6 @@ async function excluirPaciente() {
     // valida ownership antes de excluir (regras também validam, mas aqui fica claro)
     const snap = await getDoc(doc(db, nomeColecao, id));
     if (!snap.exists()) return alert("Registro não encontrado.");
-    
     await deleteDoc(doc(db, nomeColecao, id));
     alert("Excluído!");
 
@@ -689,3 +943,10 @@ function formatarData(d) {
   if (!d) return "--/--/----";
   return d.split("-").reverse().join("/");
 }
+
+
+// mostra versão no login (para confirmar que o arquivo novo carregou)
+document.addEventListener("DOMContentLoaded", () => {
+  const el = document.getElementById("versaoSys");
+  if (el) el.textContent = "Versão: " + (__MANAINSYS_VERSION || "");
+});

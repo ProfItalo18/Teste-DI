@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Laudo Neuropsicológico - Sistema Nuvem</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=20260107_01" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -27,6 +27,16 @@
         </span>
         Entrar com Google
       </button>
+
+      <div class="login-divider"><span>ou</span></div>
+
+      <input id="emailLogin" type="email" placeholder="E-mail" autocomplete="email" />
+      <input id="senhaLogin" type="password" placeholder="Senha" autocomplete="current-password" />
+
+      <button onclick="fazerLoginEmailSenha()" class="btn-login-email" type="button">Entrar com e-mail</button>
+      <button onclick="abrirModalCadastro()" class="btn-login-criar" type="button">Criar conta</button>
+      <button onclick="abrirModalRecuperarSenha()" class="btn-login-link" type="button">Esqueci minha senha</button>
+
 
       <p id="loginError" class="error-msg"></p>
     </div>
@@ -54,6 +64,9 @@
           </div>
 
           <button class="btn-logout" onclick="fazerLogout()" type="button">🚪 Sair</button>
+
+          <button class="btn-resetpass" onclick="enviarLinkRedefinirSenha()" type="button">🔑 Alterar senha</button>
+
 
           <div id="statusCheck" class="status">Aguardando ação...</div>
         </div>
@@ -146,6 +159,7 @@
             <td class="content-cell">
               <div class="documento-corpo">
                 <h1 class="titulo-principal">RELATÓRIO DE AVALIAÇÃO NEUROPSICOLÓGICA</h1>
+        <div class="versao-sys" id="versaoSys"></div>
 
                 <section>
                   <h4 class="titulo-secao">1. IDENTIFICAÇÃO</h4>
@@ -221,6 +235,51 @@
     </div>
   </div>
 
-  <script type="module" src="script.js"></script>
+  <script type="module" src="script.js?v=20260107_01"></script>
+
+  <!-- ===== MODAL: CRIAR CONTA (E-MAIL/SENHA) ===== -->
+  <div id="modalCadastro" class="modal" role="dialog" aria-modal="true" aria-labelledby="tituloCadastro">
+    <div class="modal-card">
+      <h3 id="tituloCadastro">Criar conta</h3>
+      <div class="modal-body">
+        <p class="modal-hint">Crie sua conta com e-mail e senha. A senha deve ter no mínimo 6 caracteres.</p>
+
+        <label for="cadEmail">E-mail</label>
+        <input id="cadEmail" type="email" placeholder="E-mail" autocomplete="email" />
+
+        <label for="cadSenha">Senha</label>
+        <input id="cadSenha" type="password" placeholder="Senha" autocomplete="new-password" />
+
+        <label for="cadSenha2">Confirmar senha</label>
+        <input id="cadSenha2" type="password" placeholder="Confirmar senha" autocomplete="new-password" />
+
+        <p id="cadError" class="error-msg"></p>
+      </div>
+      <div class="modal-botoes">
+        <button class="btn-success" type="button" onclick="criarContaEmailSenha()">Criar conta</button>
+        <button class="btn-cancel" type="button" onclick="fecharModalCadastro()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: RECUPERAR SENHA ===== -->
+  <div id="modalRecuperarSenha" class="modal" role="dialog" aria-modal="true" aria-labelledby="tituloRecuperar">
+    <div class="modal-card">
+      <h3 id="tituloRecuperar">Recuperar senha</h3>
+      <div class="modal-body">
+        <p class="modal-hint">Informe seu e-mail. Você receberá um link para redefinir sua senha.</p>
+
+        <label for="recEmail">E-mail</label>
+        <input id="recEmail" type="email" placeholder="E-mail" autocomplete="email" />
+
+        <p id="recError" class="error-msg"></p>
+      </div>
+      <div class="modal-botoes">
+        <button class="btn-primary" type="button" onclick="recuperarSenhaEmail()">Enviar link</button>
+        <button class="btn-cancel" type="button" onclick="fecharModalRecuperarSenha()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

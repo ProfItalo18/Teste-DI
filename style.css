@@ -239,7 +239,7 @@ button:hover { opacity: 0.92; }
   vertical-align: top;
   font-family: "Times New Roman", Times, serif;
   font-size: 12pt;
-  line-height: 1.25;
+  line-height: 2.0;
   color: black;
 }
 
@@ -267,7 +267,8 @@ button:hover { opacity: 0.92; }
   margin-bottom: 5px;
   white-space: pre-wrap;
 }
-.texto-tecnico p { margin: 0 0 5px 0; }
+.texto-tecnico p { margin: 0 0 2px 0; line-height: 2.0; }
+
 
 .placeholder{ color:#666; font-style: italic; }
 
@@ -290,7 +291,7 @@ button:hover { opacity: 0.92; }
   inset: 0;
   background: var(--modal-bg);
   backdrop-filter: blur(4px);
-  z-index: 3000;
+  z-index: 5005;
   justify-content: center;
   align-items: center;
   animation: fadeIn 0.3s ease-out;
@@ -366,4 +367,117 @@ button:hover { opacity: 0.92; }
   tr { page-break-inside: avoid; }
   .titulo-secao { page-break-after: avoid; }
   .grafico-wrapper { page-break-inside: avoid; }
+}
+
+/* ================= LOGIN (E-MAIL/SENHA) ================= */
+.login-divider{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin:14px 0 12px;
+  color:#777;
+  font-size:.85rem;
+}
+.login-divider:before,
+.login-divider:after{
+  content:"";
+  flex:1;
+  height:1px;
+  background:#e6e6e6;
+}
+.login-divider span{ padding:0 6px; }
+
+.login-box input{
+  width:100%;
+  margin-top:10px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid #dcdcdc;
+  font-size:.95rem;
+  box-sizing:border-box;
+}
+
+.btn-login-email{ background:#0d6efd; color:#fff; border-radius:12px; }
+.btn-login-criar{ background:#198754; color:#fff; border-radius:12px; }
+.btn-login-link{
+  background:transparent;
+  color:#0d6efd;
+  border:1px dashed #b9d3ff;
+  border-radius:12px;
+}
+
+.btn-resetpass{
+  background:#f1f3f5;
+  color:#111;
+  border:1px solid #dcdcdc;
+}
+
+/* Ajuste de espaçamento em listas (remove espaços excessivos) */
+.texto-tecnico ul,
+.texto-tecnico ol{
+  margin: 6px 0 6px 1.1cm;
+  padding: 0;
+  text-indent: 0;
+  white-space: normal;
+  line-height: 2.0;
+}
+
+.texto-tecnico li{
+  margin: 0 0 2px 0;
+  padding: 0;
+  line-height: 2.0;
+  text-indent: 0;
+}
+
+.tabela-dados td{ line-height: 2.0; }
+
+.assinatura-box p{ line-height: 2.0; }
+
+@media print{
+  .texto-tecnico ul,
+  .texto-tecnico ol{ margin: 4px 0 4px 1.1cm; }
+  .texto-tecnico li{ margin-bottom: 2px; }
+}
+
+
+/* ================= MODAIS DE LOGIN (CADASTRO / RECUPERAÇÃO) ================= */
+.modal-body{
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.modal-hint{
+  margin: 0 0 10px 0;
+  font-size: .85rem;
+  color: #666;
+  line-height: 1.35;
+}
+
+#modalCadastro label,
+#modalRecuperarSenha label{
+  display:block;
+  font-weight: 600;
+  font-size: .82rem;
+  color: #495057;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+#modalCadastro input,
+#modalRecuperarSenha input{
+  width: 100%;
+}
+
+
+/* FIX: Modais de autenticação acima do overlay de login */
+#modalCadastro,
+#modalRecuperarSenha{
+  z-index: 5010;
+}
+
+.versao-sys{
+  margin-top: 6px;
+  font-size: 12px;
+  color: #8a8a8a;
+  text-align: center;
 }
