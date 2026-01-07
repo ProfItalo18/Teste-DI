@@ -481,3 +481,14 @@ button:hover { opacity: 0.92; }
   color: #8a8a8a;
   text-align: center;
 }
+
+
+
+@media print{
+  /* Oculta marcador de versão (somente para debug) */
+  .versao-sys,
+  #versaoSys{
+    display: none !important;
+    visibility: hidden !important;
+  }
+}

@@ -78,6 +78,7 @@ window.fecharModalRecuperarSenha = fecharModalRecuperarSenha;
 
 /* ================= LOGIN: MODAIS + LIMPEZA ================= */
 let __keepEmailAfterCreate = false;
+let bloqueioListagem = false; // evita listar durante troca de sessão (ex.: criação de conta)
 
 function limparCamposLogin(opts = {}) {
   const keepEmail = !!opts.keepEmail;
@@ -375,6 +376,9 @@ async function criarContaEmailSenha() {
     return;
   }
 
+  // ✅ evita erro de permissão durante a troca de sessão (create -> signOut)
+  bloqueioListagem = true;
+
   try {
     // evita conflito quando o usuário alterna métodos de login
     if (auth.currentUser) await signOut(auth);
@@ -405,6 +409,9 @@ async function criarContaEmailSenha() {
     console.error("CRIAR CONTA ERRO:", e);
     if (errEl) errEl.textContent = traduzirErroAuth(e.code);
     else alert(traduzirErroAuth(e.code));
+  } finally {
+    // libera listagem novamente
+    bloqueioListagem = false;
   }
 
 }
@@ -525,6 +532,8 @@ function limparSelect() {
 
 async function carregarListaPacientes() {
   if (!exigirLogin()) return;
+  if (bloqueioListagem) return;
+
   // ✅ Evita listar enquanto o overlay de login ainda está visível (troca de sessão/token)
   const overlay = document.getElementById("loginOverlay");
   if (overlay && overlay.style.display !== "none") return;
@@ -577,10 +586,16 @@ async function salvarPaciente() {
     nascimento: document.getElementById("dataNasc")?.value || "",
     dataAplicacao: document.getElementById("dataAplicacao")?.value || "",
     testeSelecionado: document.getElementById("testeSelecionado")?.value || "",
+    motivo: document.getElementById("viewMotivo")?.innerText || "",
+    motivo_html: document.getElementById("viewMotivo")?.innerHTML || "",
     analise1: document.getElementById("viewAnalise1")?.innerText || "",
+    analise1_html: document.getElementById("viewAnalise1")?.innerHTML || "",
     analise2: document.getElementById("viewAnalise2")?.innerText || "",
+    analise2_html: document.getElementById("viewAnalise2")?.innerHTML || "",
     conclusao: document.getElementById("viewConclusao")?.innerText || "",
+    conclusao_html: document.getElementById("viewConclusao")?.innerHTML || "",
     encaminhamentos: document.getElementById("viewEncaminhamentos")?.innerText || "",
+    encaminhamentos_html: document.getElementById("viewEncaminhamentos")?.innerHTML || "",
     checklistData: dados || { media: 0, valores: [], labels: [], teste: "" },
     updatedAt: serverTimestamp()
   };
@@ -633,10 +648,50 @@ async function carregarPacienteDoBanco() {
     document.getElementById("dataAplicacao").value = paciente.dataAplicacao || "";
     document.getElementById("testeSelecionado").value = paciente.testeSelecionado || "";
 
-    document.getElementById("viewAnalise1").innerHTML = `<p>${(paciente.analise1 || "").replace(/\n/g, "</p><p>")}</p>`;
-    document.getElementById("viewAnalise2").innerHTML = `<p>${(paciente.analise2 || "").replace(/\n/g, "</p><p>")}</p>`;
-    document.getElementById("viewConclusao").innerHTML = `<p>${(paciente.conclusao || "").replace(/\n/g, "</p><p>")}</p>`;
-    document.getElementById("viewEncaminhamentos").innerHTML = `<p>${(paciente.encaminhamentos || "").replace(/\n/g, "</p><p>")}</p>`;
+    (function(){
+      const el = document.getElementById("viewAnalise1");
+      if (!el) return;
+      const htmlSalvo = paciente["analise1_html"];
+      const txtSalvo = paciente["analise1"] || "";
+      if (htmlSalvo && typeof htmlSalvo === "string") {
+        el.innerHTML = htmlSalvo;
+      } else {
+        el.innerHTML = `<p>${txtSalvo.replace(/\n/g, "</p><p>")}</p>`;
+      }
+    })();
+    (function(){
+      const el = document.getElementById("viewAnalise2");
+      if (!el) return;
+      const htmlSalvo = paciente["analise2_html"];
+      const txtSalvo = paciente["analise2"] || "";
+      if (htmlSalvo && typeof htmlSalvo === "string") {
+        el.innerHTML = htmlSalvo;
+      } else {
+        el.innerHTML = `<p>${txtSalvo.replace(/\n/g, "</p><p>")}</p>`;
+      }
+    })();
+    (function(){
+      const el = document.getElementById("viewConclusao");
+      if (!el) return;
+      const htmlSalvo = paciente["conclusao_html"];
+      const txtSalvo = paciente["conclusao"] || "";
+      if (htmlSalvo && typeof htmlSalvo === "string") {
+        el.innerHTML = htmlSalvo;
+      } else {
+        el.innerHTML = `<p>${txtSalvo.replace(/\n/g, "</p><p>")}</p>`;
+      }
+    })();
+    (function(){
+      const el = document.getElementById("viewEncaminhamentos");
+      if (!el) return;
+      const htmlSalvo = paciente["encaminhamentos_html"];
+      const txtSalvo = paciente["encaminhamentos"] || "";
+      if (htmlSalvo && typeof htmlSalvo === "string") {
+        el.innerHTML = htmlSalvo;
+      } else {
+        el.innerHTML = `<p>${txtSalvo.replace(/\n/g, "</p><p>")}</p>`;
+      }
+    })();
 
     if (paciente.checklistData?.valores?.length) {
       dados = paciente.checklistData;
@@ -727,13 +782,50 @@ function resetarDadosTeste() {
 
   document.getElementById("viewMotivo").innerHTML =
     '<p class="placeholder">[Preencha o nome e selecione o teste...]</p>';
-  document.getElementById("viewAnalise1").innerHTML =
-    '<p class="placeholder">[Aguardando Checklist...]</p>';
-  document.getElementById("viewAnalise2").innerHTML = "";
-  document.getElementById("viewConclusao").innerHTML =
-    '<p class="placeholder">[Aguardando Análise...]</p>';
-  document.getElementById("viewEncaminhamentos").innerHTML =
-    '<p class="placeholder">[Aguardando Análise...]</p>';
+  (function(){
+      const el = document.getElementById("viewAnalise1");
+      if (!el) return;
+      const htmlSalvo = paciente["analise1_html"];
+      const txtSalvo = paciente["analise1"] || "";
+      if (htmlSalvo && typeof htmlSalvo === "string") {
+        el.innerHTML = htmlSalvo;
+      } else {
+        el.innerHTML = `<p>${txtSalvo.replace(/\n/g, "</p><p>")}</p>`;
+      }
+    })();
+  (function(){
+      const el = document.getElementById("viewAnalise2");
+      if (!el) return;
+      const htmlSalvo = paciente["analise2_html"];
+      const txtSalvo = paciente["analise2"] || "";
+      if (htmlSalvo && typeof htmlSalvo === "string") {
+        el.innerHTML = htmlSalvo;
+      } else {
+        el.innerHTML = `<p>${txtSalvo.replace(/\n/g, "</p><p>")}</p>`;
+      }
+    })();
+  (function(){
+      const el = document.getElementById("viewConclusao");
+      if (!el) return;
+      const htmlSalvo = paciente["conclusao_html"];
+      const txtSalvo = paciente["conclusao"] || "";
+      if (htmlSalvo && typeof htmlSalvo === "string") {
+        el.innerHTML = htmlSalvo;
+      } else {
+        el.innerHTML = `<p>${txtSalvo.replace(/\n/g, "</p><p>")}</p>`;
+      }
+    })();
+  (function(){
+      const el = document.getElementById("viewEncaminhamentos");
+      if (!el) return;
+      const htmlSalvo = paciente["encaminhamentos_html"];
+      const txtSalvo = paciente["encaminhamentos"] || "";
+      if (htmlSalvo && typeof htmlSalvo === "string") {
+        el.innerHTML = htmlSalvo;
+      } else {
+        el.innerHTML = `<p>${txtSalvo.replace(/\n/g, "</p><p>")}</p>`;
+      }
+    })();
 
   atualizarRelatorio();
 }
@@ -859,8 +951,28 @@ function gerarTextoAutomatico() {
   analiseTexto = analiseTexto.replace("[DESEMPENHO3]", desempenho3);
   conclusaoTexto = conclusaoTexto.replace("[HIPOTESE]", hipoteseDI).replace("[RESULTADO]", resultadoProg);
 
-  document.getElementById("viewAnalise1").innerHTML = `<p>${analiseTexto.replace(/\n/g, "</p><p>")}</p>`;
-  document.getElementById("viewConclusao").innerHTML = `<p>${conclusaoTexto.replace(/\n/g, "</p><p>")}</p>`;
+  (function(){
+      const el = document.getElementById("viewAnalise1");
+      if (!el) return;
+      const htmlSalvo = paciente["analise1_html"];
+      const txtSalvo = paciente["analise1"] || "";
+      if (htmlSalvo && typeof htmlSalvo === "string") {
+        el.innerHTML = htmlSalvo;
+      } else {
+        el.innerHTML = `<p>${txtSalvo.replace(/\n/g, "</p><p>")}</p>`;
+      }
+    })();
+  (function(){
+      const el = document.getElementById("viewConclusao");
+      if (!el) return;
+      const htmlSalvo = paciente["conclusao_html"];
+      const txtSalvo = paciente["conclusao"] || "";
+      if (htmlSalvo && typeof htmlSalvo === "string") {
+        el.innerHTML = htmlSalvo;
+      } else {
+        el.innerHTML = `<p>${txtSalvo.replace(/\n/g, "</p><p>")}</p>`;
+      }
+    })();
 
   const encam = `
   <p>Diante do exposto, sugere-se a seguinte conduta multidisciplinar para otimização do quadro:</p>
@@ -871,7 +983,17 @@ function gerarTextoAutomatico() {
   <p><strong>3. Âmbito Familiar e Social:</strong><br>
   Rotina previsível, treino gradual de AVDs e quadros visuais.</p>`;
 
-  document.getElementById("viewEncaminhamentos").innerHTML = encam;
+  (function(){
+      const el = document.getElementById("viewEncaminhamentos");
+      if (!el) return;
+      const htmlSalvo = paciente["encaminhamentos_html"];
+      const txtSalvo = paciente["encaminhamentos"] || "";
+      if (htmlSalvo && typeof htmlSalvo === "string") {
+        el.innerHTML = htmlSalvo;
+      } else {
+        el.innerHTML = `<p>${txtSalvo.replace(/\n/g, "</p><p>")}</p>`;
+      }
+    })();
 }
 
 /* ================= GRÁFICO (Chart.js) ================= */
