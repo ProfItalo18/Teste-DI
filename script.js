@@ -1,82 +1,126 @@
-/* ================= CONFIGURAÇÃO DO FIREBASE (BANCO DE DADOS) ================= */
+/* ================= FIREBASE (APP/DB/AUTH) ================= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc } 
-from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDoc,
+  getDocs,
+  doc,
+  deleteDoc,
+  updateDoc,
+  query,
+  where,
+  orderBy,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDsUix6zvKOznC1SY_j2AQHzr-6hrcLlNc",
-  authDomain: "clinicasyscol.firebaseapp.com",
-  projectId: "clinicasyscol",
-  storageBucket: "clinicasyscol.firebasestorage.app",
-  messagingSenderId: "922450718294",
-  appId: "1:922450718294:web:0285b9271e02bfb96695f7"
+  apiKey: "AIzaSyCqvZkhe7ugV293d52vH20DX8ae4OiZ6o4",
+  authDomain: "clinicasyscol1.firebaseapp.com",
+  projectId: "clinicasyscol1",
+  storageBucket: "clinicasyscol1.firebasestorage.app",
+  messagingSenderId: "905378741588",
+  appId: "1:905378741588:web:c32feb52f2e4a882589cc1"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+
 const nomeColecao = "pacientes";
 
 /* ================= VARIÁVEIS GLOBAIS ================= */
+let pacienteAtualId = ""; // ID do documento carregado (para atualizar/excluir)
 let dados = { media: 0, valores: [], labels: [], teste: "" };
 let chartInstance = null;
 
-// Disponibiliza funções para o HTML
+/* ================= EXPORTA FUNÇÕES PARA HTML ================= */
+window.fazerLoginGoogle = fazerLoginGoogle;
+window.fazerLogout = fazerLogout;
+
 window.salvarPaciente = salvarPaciente;
 window.carregarPacienteDoBanco = carregarPacienteDoBanco;
 window.excluirPaciente = excluirPaciente;
+
 window.atualizarRelatorio = atualizarRelatorio;
 window.abrirChecklist = abrirChecklist;
 window.salvarChecklist = salvarChecklist;
+window.fecharChecklist = fecharChecklist;
 window.resetarDadosTeste = resetarDadosTeste;
 
-/* ================= LISTAS DE ITENS (CHECKLISTS) ================= */
+/* ================= CHECKLISTS ================= */
 const checklists = {
-    "wisc": [
-        "Compreensão Verbal (Semelhanças, Vocabulário)",
-        "Visuoespacial (Cubos, Quebra-cabeça)",
-        "Raciocínio Fluido (Matrizes, Peso Figurado)",
-        "Memória de Trabalho (Dígitos, Figuras)",
-        "Velocidade de Processamento (Código, Procurar Símbolo)",
-        "Aritmética / Raciocínio Quantitativo",
-        "Retenção de Informação Auditiva"
-    ],
-    "wais": [
-        "Compreensão Verbal (Conhecimento Cristalizado)",
-        "Organização Perceptual (Visuoespacial)",
-        "Memória Operacional (Controle Atencional)",
-        "Velocidade de Processamento (Psicomotor)",
-        "Raciocínio Matricial (Inteligência Fluida)",
-        "Aritmética e Cálculo Mental"
-    ],
-    "sonr27": [
-        "Mosaicos (Habilidade Espacial)", "Categorias (Abstração)", 
-        "Situações (Causa e Efeito)", "Padrões (Sequenciamento)",
-        "Coordenação Visuomotora Fina"
-    ],
-    "sonr640": [
-        "Analogias (Pensamento Abstrato)", "Mosaicos (Planejamento)", 
-        "Categorias (Classificação Semântica)", "Situações (Inteligência Prática)",
-        "Flexibilidade Cognitiva"
-    ],
-    "raven": [
-        "Série A (Discriminação Perceptual)", "Série B (Analogia Concreta)", 
-        "Série C (Padrões Progressivos)", "Série D (Decomposição de Figuras)", 
-        "Série E (Abstração Superior)"
-    ],
-    "abas": [
-        "Comunicação Funcional", "Uso de Recursos Comunitários", "Habilidades Acadêmicas", 
-        "Vida Doméstica e Autocuidado", "Saúde e Segurança", "Lazer e Socialização", 
-        "Autodireção e Escolha", "Social", "Motor"
-    ],
-    "vinhais": [
-        "Comunicação Receptiva/Expressiva", "Habilidades Sociais e Empatia", 
-        "Cuidados Pessoais (Higiene/Vestuário)", "Vida Doméstica e Tarefas", 
-        "Independência na Comunidade", "Trabalho e Ocupação",
-        "Lazer e Recreação"
-    ]
+  wisc: [
+    "Compreensão Verbal (Semelhanças, Vocabulário)",
+    "Visuoespacial (Cubos, Quebra-cabeça)",
+    "Raciocínio Fluido (Matrizes, Peso Figurado)",
+    "Memória de Trabalho (Dígitos, Figuras)",
+    "Velocidade de Processamento (Código, Procurar Símbolo)",
+    "Aritmética / Raciocínio Quantitativo",
+    "Retenção de Informação Auditiva"
+  ],
+  wais: [
+    "Compreensão Verbal (Conhecimento Cristalizado)",
+    "Organização Perceptual (Visuoespacial)",
+    "Memória Operacional (Controle Atencional)",
+    "Velocidade de Processamento (Psicomotor)",
+    "Raciocínio Matricial (Inteligência Fluida)",
+    "Aritmética e Cálculo Mental"
+  ],
+  sonr27: [
+    "Mosaicos (Habilidade Espacial)",
+    "Categorias (Abstração)",
+    "Situações (Causa e Efeito)",
+    "Padrões (Sequenciamento)",
+    "Coordenação Visuomotora Fina"
+  ],
+  sonr640: [
+    "Analogias (Pensamento Abstrato)",
+    "Mosaicos (Planejamento)",
+    "Categorias (Classificação Semântica)",
+    "Situações (Inteligência Prática)",
+    "Flexibilidade Cognitiva"
+  ],
+  raven: [
+    "Série A (Discriminação Perceptual)",
+    "Série B (Analogia Concreta)",
+    "Série C (Padrões Progressivos)",
+    "Série D (Decomposição de Figuras)",
+    "Série E (Abstração Superior)"
+  ],
+  abas: [
+    "Comunicação Funcional",
+    "Uso de Recursos Comunitários",
+    "Habilidades Acadêmicas",
+    "Vida Doméstica e Autocuidado",
+    "Saúde e Segurança",
+    "Lazer e Socialização",
+    "Autodireção e Escolha",
+    "Social",
+    "Motor"
+  ],
+  vinhais: [
+    "Comunicação Receptiva/Expressiva",
+    "Habilidades Sociais e Empatia",
+    "Cuidados Pessoais (Higiene/Vestuário)",
+    "Vida Doméstica e Tarefas",
+    "Independência na Comunidade",
+    "Trabalho e Ocupação",
+    "Lazer e Recreação"
+  ]
 };
 
-/* ================= TEXTOS PADRÕES EXPANDIDOS (MIN 30 LINHAS) ================= */
+/* ================= TEXTOS PADRÕES ================= */
 const textosPadrao = {
     wisc: {
         motivo: `A Avaliação Neuropsicológica constitui um procedimento de investigação clínica complexo, sistemático e minucioso, cujo objetivo primordial transcende a mera aplicação de testes psicométricos isolados. Este processo visa mapear, de forma abrangente, o funcionamento cognitivo, comportamental e emocional do indivíduo, correlacionando o desempenho obtido com a integridade funcional do Sistema Nervoso Central (SNC). No presente caso, a solicitação deste psicodiagnóstico fundamenta-se na necessidade clínica imperativa de investigar a etiologia das queixas funcionais relatadas na anamnese, diferenciando se tais manifestações possuem origem pedagógica, emocional, ambiental ou se configuram um transtorno do neurodesenvolvimento de base biológica.
@@ -162,389 +206,494 @@ Evidencia-se a necessidade de um Nível de Suporte [RESULTADO] (variando de Inte
          conclusao: `O perfil cognitivo não-verbal apresenta-se compatível com [HIPOTESE]. O prognóstico para desenvolvimento de habilidades práticas é [RESULTADO]. Indica-se intervenção psicopedagógica e neuropsicológica focada em estratégias de organização e planejamento (funções executivas), visando otimizar o potencial intelectual identificado. O uso de mapas mentais, cronogramas e organizadores visuais será de grande valia para o aprendizado de novos conteúdos acadêmicos ou laborais.`
     }
 };
+/* ================= AUTH ================= */
+async function fazerLoginGoogle() {
+  const errEl = document.getElementById("loginError");
+  if (errEl) errEl.textContent = "";
 
-/* ================= FUNÇÕES DO BANCO DE DADOS ================= */
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    console.error("LOGIN ERRO:", err.code, err.message);
+    if (errEl) errEl.textContent = `Erro: ${err.message}`;
+  }
+}
+
+async function fazerLogout() {
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.error("LOGOUT ERRO:", err.code, err.message);
+    alert(`Erro ao sair: ${err.message}`);
+  }
+}
+
+function exigirLogin() {
+  if (!auth.currentUser) {
+    alert("Você precisa estar logado para salvar/excluir.");
+    return false;
+  }
+  return true;
+}
+
+/* ================= CONTROLE DE TELA (LOGIN x APP) ================= */
+onAuthStateChanged(auth, async (user) => {
+  const overlay = document.getElementById("loginOverlay");
+  const appMain = document.getElementById("appPrincipal");
+  const badge = document.getElementById("userBadge");
+
+  if (!overlay || !appMain) return;
+
+  if (user) {
+    overlay.style.display = "none";
+    appMain.style.display = "flex";
+    if (badge) badge.textContent = user.email || user.displayName || "Logado";
+
+    // ao logar, carrega lista
+    await carregarListaPacientes();
+  } else {
+    overlay.style.display = "flex";
+    appMain.style.display = "none";
+    if (badge) badge.textContent = "—";
+
+    // limpa tudo
+    pacienteAtualId = "";
+    limparCamposAposSalvar();
+    limparSelect();
+  }
+});
+
+/* ================= FIRESTORE: LISTAR/SALVAR/CARREGAR/EXCLUIR ================= */
+function limparSelect() {
+  const select = document.getElementById("listaPacientesSalvos");
+  if (!select) return;
+  select.innerHTML = '<option value="">Carregar Paciente...</option>';
+}
 
 async function carregarListaPacientes() {
-    const select = document.getElementById("listaPacientesSalvos");
-    select.innerHTML = '<option value="">Carregar Paciente...</option>';
-    
-    try {
-        const querySnapshot = await getDocs(collection(db, nomeColecao));
-        querySnapshot.forEach((doc) => {
-            const opt = document.createElement("option");
-            opt.value = doc.id;
-            const dataP = doc.data().dataAplicacao ? ` (${formatarData(doc.data().dataAplicacao)})` : "";
-            opt.text = doc.data().nome + dataP;
-            select.add(opt);
-        });
-    } catch (e) {
-        console.error("Erro ao listar:", e);
-        document.getElementById("statusCheck").innerText = "Erro ao conectar no banco.";
-    }
+  if (!exigirLogin()) return;
+
+  const select = document.getElementById("listaPacientesSalvos");
+  const status = document.getElementById("statusCheck");
+  if (!select) return;
+
+  select.innerHTML = '<option value="">Carregar Paciente...</option>';
+
+  try {
+    // lista somente do usuário logado
+    const q = query(
+      collection(db, nomeColecao),
+      where("uid", "==", auth.currentUser.uid),
+      orderBy("updatedAt", "desc")
+    );
+
+    const snap = await getDocs(q);
+
+    snap.forEach((d) => {
+      const p = d.data();
+      const dataP = p?.dataAplicacao ? ` (${formatarData(p.dataAplicacao)})` : "";
+      const opt = document.createElement("option");
+      opt.value = d.id;
+      opt.text = (p?.nome || "Sem nome") + dataP;
+      select.add(opt);
+    });
+
+    if (status) status.innerText = `Registros: ${snap.size}`;
+  } catch (e) {
+    console.error("LISTAR ERRO:", e.code, e.message, e);
+    if (status) status.innerText = `Erro ao listar: ${e.code || ""}`;
+    alert(`Erro ao listar: ${e.code || ""} ${e.message || ""}`);
+  }
 }
 
 async function salvarPaciente() {
-    const nome = document.getElementById("nomePaciente").value;
-    if (!nome) return alert("Digite o nome do paciente!");
+  if (!exigirLogin()) return;
 
-    const dadosParaSalvar = {
-        nome: nome,
-        nascimento: document.getElementById("dataNasc").value,
-        dataAplicacao: document.getElementById("dataAplicacao").value,
-        testeSelecionado: document.getElementById("testeSelecionado").value,
-        analise1: document.getElementById("viewAnalise1").innerText, 
-        analise2: document.getElementById("viewAnalise2").innerText,
-        conclusao: document.getElementById("viewConclusao").innerText,
-        checklistData: dados,
-        dataAtualizacao: new Date().toISOString()
-    };
+  const nome = (document.getElementById("nomePaciente")?.value || "").trim();
+  if (!nome) return alert("Digite o nome do paciente!");
 
-    try {
-        await addDoc(collection(db, nomeColecao), dadosParaSalvar);
-        alert("Paciente salvo com sucesso!");
-        carregarListaPacientes();
-        limparCamposAposSalvar();
-    } catch (e) {
-        console.error("Erro ao salvar:", e);
-        alert("Erro ao salvar.");
+  const status = document.getElementById("statusCheck");
+
+  // IMPORTANTÍSSIMO: uid precisa existir por causa das Rules
+  const payload = {
+    uid: auth.currentUser.uid,
+    nome,
+    nascimento: document.getElementById("dataNasc")?.value || "",
+    dataAplicacao: document.getElementById("dataAplicacao")?.value || "",
+    testeSelecionado: document.getElementById("testeSelecionado")?.value || "",
+    analise1: document.getElementById("viewAnalise1")?.innerText || "",
+    analise2: document.getElementById("viewAnalise2")?.innerText || "",
+    conclusao: document.getElementById("viewConclusao")?.innerText || "",
+    encaminhamentos: document.getElementById("viewEncaminhamentos")?.innerText || "",
+    checklistData: dados || { media: 0, valores: [], labels: [], teste: "" },
+    updatedAt: serverTimestamp()
+  };
+
+  try {
+    if (pacienteAtualId) {
+      // update
+      await updateDoc(doc(db, nomeColecao, pacienteAtualId), payload);
+      alert("Paciente atualizado com sucesso!");
+    } else {
+      // create
+      payload.createdAt = serverTimestamp();
+      await addDoc(collection(db, nomeColecao), payload);
+      alert("Paciente salvo com sucesso!");
     }
+
+    pacienteAtualId = "";
+    if (status) status.innerText = "Salvo com sucesso!";
+    await carregarListaPacientes();
+    limparCamposAposSalvar();
+  } catch (e) {
+    console.error("SALVAR ERRO:", e.code, e.message, e);
+    if (status) status.innerText = `Erro ao salvar: ${e.code || ""}`;
+    alert(`Erro ao salvar: ${e.code || ""} ${e.message || ""}`);
+  }
 }
 
 async function carregarPacienteDoBanco() {
-    const id = document.getElementById("listaPacientesSalvos").value;
-    if (!id) return;
+  if (!exigirLogin()) return;
 
-    try {
-        const querySnapshot = await getDocs(collection(db, nomeColecao));
-        let paciente = null;
-        querySnapshot.forEach((doc) => {
-            if (doc.id === id) paciente = doc.data();
-        });
+  const id = document.getElementById("listaPacientesSalvos")?.value;
+  if (!id) return;
 
-        if (paciente) {
-            document.getElementById("nomePaciente").value = paciente.nome;
-            document.getElementById("dataNasc").value = paciente.nascimento;
-            document.getElementById("dataAplicacao").value = paciente.dataAplicacao;
-            document.getElementById("testeSelecionado").value = paciente.testeSelecionado;
+  const status = document.getElementById("statusCheck");
+  pacienteAtualId = id;
 
-            // Preenche os textos
-            document.getElementById("viewAnalise1").innerHTML = `<p>${paciente.analise1.replace(/\n/g, "</p><p>")}</p>`;
-            document.getElementById("viewAnalise2").innerHTML = `<p>${paciente.analise2.replace(/\n/g, "</p><p>")}</p>`;
-            document.getElementById("viewConclusao").innerHTML = `<p>${paciente.conclusao.replace(/\n/g, "</p><p>")}</p>`;
-            
-            if (paciente.checklistData && paciente.checklistData.valores.length > 0) {
-                dados = paciente.checklistData;
-                atualizarGrafico();
-                document.getElementById("statusCheck").innerText = `Carregado. Média: ${dados.media}`;
-            }
+  try {
+    const ref = doc(db, nomeColecao, id);
+    const snap = await getDoc(ref);
 
-            atualizarRelatorio();
-        }
-    } catch (e) {
-        console.error(e);
+    if (!snap.exists()) {
+      alert("Registro não encontrado.");
+      pacienteAtualId = "";
+      return;
     }
+
+    const paciente = snap.data();
+
+    // segurança extra: só carrega se for do usuário
+    if (paciente.uid !== auth.currentUser.uid) {
+      alert("Acesso negado a este registro.");
+      pacienteAtualId = "";
+      return;
+    }
+
+    document.getElementById("nomePaciente").value = paciente.nome || "";
+    document.getElementById("dataNasc").value = paciente.nascimento || "";
+    document.getElementById("dataAplicacao").value = paciente.dataAplicacao || "";
+    document.getElementById("testeSelecionado").value = paciente.testeSelecionado || "";
+
+    document.getElementById("viewAnalise1").innerHTML = `<p>${(paciente.analise1 || "").replace(/\n/g, "</p><p>")}</p>`;
+    document.getElementById("viewAnalise2").innerHTML = `<p>${(paciente.analise2 || "").replace(/\n/g, "</p><p>")}</p>`;
+    document.getElementById("viewConclusao").innerHTML = `<p>${(paciente.conclusao || "").replace(/\n/g, "</p><p>")}</p>`;
+    document.getElementById("viewEncaminhamentos").innerHTML = `<p>${(paciente.encaminhamentos || "").replace(/\n/g, "</p><p>")}</p>`;
+
+    if (paciente.checklistData?.valores?.length) {
+      dados = paciente.checklistData;
+      atualizarGrafico();
+      if (status) status.innerText = `Carregado. Média: ${dados.media}`;
+    } else {
+      if (status) status.innerText = "Carregado.";
+    }
+
+    atualizarRelatorio();
+  } catch (e) {
+    console.error("CARREGAR ERRO:", e.code, e.message, e);
+    alert(`Erro ao carregar: ${e.code || ""} ${e.message || ""}`);
+  }
 }
 
 async function excluirPaciente() {
-    const id = document.getElementById("listaPacientesSalvos").value;
-    if (!id) return alert("Selecione um paciente para excluir.");
-    
-    if (confirm("Tem certeza que deseja excluir este registro?")) {
-        try {
-            await deleteDoc(doc(db, nomeColecao, id));
-            alert("Excluído!");
-            carregarListaPacientes();
-            limparCamposAposSalvar();
-        } catch (e) {
-            console.error(e);
-        }
-    }
+  if (!exigirLogin()) return;
+
+  const id = pacienteAtualId || document.getElementById("listaPacientesSalvos")?.value;
+  if (!id) return alert("Selecione um paciente para excluir.");
+
+  if (!confirm("Tem certeza que deseja excluir este registro?")) return;
+
+  const status = document.getElementById("statusCheck");
+
+  try {
+    // valida ownership antes de excluir (regras também validam, mas aqui fica claro)
+    const snap = await getDoc(doc(db, nomeColecao, id));
+    if (!snap.exists()) return alert("Registro não encontrado.");
+    if (snap.data().uid !== auth.currentUser.uid) return alert("Acesso negado.");
+
+    await deleteDoc(doc(db, nomeColecao, id));
+    alert("Excluído!");
+
+    pacienteAtualId = "";
+    if (status) status.innerText = "Excluído.";
+    await carregarListaPacientes();
+    limparCamposAposSalvar();
+  } catch (e) {
+    console.error("EXCLUIR ERRO:", e.code, e.message, e);
+    alert(`Erro ao excluir: ${e.code || ""} ${e.message || ""}`);
+  }
 }
 
+/* ================= UI / RELATÓRIO ================= */
 function limparCamposAposSalvar() {
-    document.getElementById("nomePaciente").value = "";
-    document.getElementById("dataNasc").value = "";
-    document.getElementById("dataAplicacao").value = "";
-    document.getElementById("testeSelecionado").value = "";
-    resetarDadosTeste();
+  pacienteAtualId = "";
+  document.getElementById("nomePaciente").value = "";
+  document.getElementById("dataNasc").value = "";
+  document.getElementById("dataAplicacao").value = "";
+  document.getElementById("testeSelecionado").value = "";
+  resetarDadosTeste();
 }
-
-// Inicializa
-carregarListaPacientes();
-
-/* ================= FUNÇÕES DE INTERFACE ================= */
 
 function atualizarRelatorio() {
-    document.getElementById("viewNome").innerText = document.getElementById("nomePaciente").value.toUpperCase();
-    
-    const nas = document.getElementById("dataNasc").value;
-    document.getElementById("viewNasc").innerText = formatarData(nas);
-    
-    const appData = document.getElementById("dataAplicacao").value;
-    document.getElementById("viewData").innerText = formatarData(appData);
+  const nome = document.getElementById("nomePaciente").value || "";
+  document.getElementById("viewNome").innerText = nome.toUpperCase();
 
-    // CÁLCULO DA IDADE COM BASE NA DATA DE HOJE
-    if (nas) {
-        document.getElementById("viewIdade").innerText = calcularIdade(nas);
-    }
+  const nas = document.getElementById("dataNasc").value;
+  document.getElementById("viewNasc").innerText = formatarData(nas);
 
-    const teste = document.getElementById("testeSelecionado").value;
-    const motivoDiv = document.getElementById("viewMotivo");
-    
-    if (teste && textosPadrao[teste]) {
-        if (motivoDiv.innerText.includes("Preencha") || motivoDiv.innerText.trim() === "") {
-             motivoDiv.innerHTML = `<p>${textosPadrao[teste].motivo.replace(/\n/g, "</p><p>")}</p>`;
-        }
+  const appData = document.getElementById("dataAplicacao").value;
+  document.getElementById("viewData").innerText = formatarData(appData);
+
+  if (nas) document.getElementById("viewIdade").innerText = calcularIdade(nas);
+  else document.getElementById("viewIdade").innerText = "";
+
+  const teste = document.getElementById("testeSelecionado").value;
+  const motivoDiv = document.getElementById("viewMotivo");
+
+  if (teste && textosPadrao[teste] && motivoDiv) {
+    const txt = textosPadrao[teste].motivo || "";
+    if (!motivoDiv.innerText || motivoDiv.innerText.includes("Preencha")) {
+      motivoDiv.innerHTML = `<p>${txt.replace(/\n/g, "</p><p>")}</p>`;
     }
+  }
 }
 
 function resetarDadosTeste() {
-    dados = { media: 0, valores: [], labels: [], teste: "" };
-    if (chartInstance) {
-        chartInstance.destroy();
-        chartInstance = null;
-    }
-    document.getElementById("boxGrafico").style.display = 'none';
-    document.getElementById("statusCheck").innerText = "Aguardando dados...";
-    
-    document.getElementById("viewMotivo").innerHTML = '<p class="placeholder">[Preencha o nome e selecione o teste...]</p>';
-    document.getElementById("viewAnalise1").innerHTML = '<p class="placeholder">[Aguardando Checklist...]</p>';
-    document.getElementById("viewAnalise2").innerHTML = '';
-    document.getElementById("viewConclusao").innerHTML = '<p class="placeholder">[Aguardando Análise...]</p>';
-    document.getElementById("viewEncaminhamentos").innerHTML = '<p class="placeholder">[Aguardando Análise...]</p>';
-    
-    atualizarRelatorio();
+  dados = { media: 0, valores: [], labels: [], teste: "" };
+
+  if (chartInstance) {
+    chartInstance.destroy();
+    chartInstance = null;
+  }
+
+  document.getElementById("boxGrafico").style.display = "none";
+  document.getElementById("statusCheck").innerText = "Aguardando dados...";
+
+  document.getElementById("viewMotivo").innerHTML =
+    '<p class="placeholder">[Preencha o nome e selecione o teste...]</p>';
+  document.getElementById("viewAnalise1").innerHTML =
+    '<p class="placeholder">[Aguardando Checklist...]</p>';
+  document.getElementById("viewAnalise2").innerHTML = "";
+  document.getElementById("viewConclusao").innerHTML =
+    '<p class="placeholder">[Aguardando Análise...]</p>';
+  document.getElementById("viewEncaminhamentos").innerHTML =
+    '<p class="placeholder">[Aguardando Análise...]</p>';
+
+  atualizarRelatorio();
 }
 
-// CÁLCULO PRECISO DA IDADE: HOJE - NASCIMENTO
 function calcularIdade(nascimento) {
-    if (!nascimento) return "";
-    const n = new Date(nascimento);
-    const hoje = new Date(); // Data atual
-    
-    let anos = hoje.getFullYear() - n.getFullYear();
-    let meses = hoje.getMonth() - n.getMonth();
-    let dias = hoje.getDate() - n.getDate();
+  if (!nascimento) return "";
+  const n = new Date(nascimento);
+  const hoje = new Date();
 
-    // Ajuste se o mês ainda não virou
-    if (dias < 0) {
-        meses--;
-    }
-    // Ajuste se o ano ainda não virou (aniversário não chegou)
-    if (meses < 0) {
-        anos--;
-        meses += 12;
-    }
-    
-    return `${anos} anos e ${meses} meses`;
+  let anos = hoje.getFullYear() - n.getFullYear();
+  let meses = hoje.getMonth() - n.getMonth();
+  let dias = hoje.getDate() - n.getDate();
+
+  if (dias < 0) meses--;
+  if (meses < 0) { anos--; meses += 12; }
+
+  return `${anos} anos e ${meses} meses`;
 }
 
+/* ================= MODAL / CHECKLIST ================= */
 function abrirChecklist() {
-    const teste = document.getElementById("testeSelecionado").value;
-    if (!teste) return alert("Selecione um instrumento primeiro!");
+  const teste = document.getElementById("testeSelecionado").value;
+  if (!teste) return alert("Selecione um instrumento primeiro!");
 
-    const lista = checklists[teste];
-    if (!lista) return alert("Checklist não configurado para este teste.");
+  const lista = checklists[teste];
+  if (!lista) return alert("Checklist não configurado para este teste.");
 
-    const divLista = document.getElementById("listaChecklist");
-    divLista.innerHTML = "";
+  const divLista = document.getElementById("listaChecklist");
+  divLista.innerHTML = "";
 
-    lista.forEach((item, index) => {
-        const row = document.createElement("div");
-        row.className = "chk-item";
-        
-        const label = document.createElement("span");
-        label.innerText = item;
-        
-        const sel = document.createElement("select");
-        sel.id = `chk_${index}`;
-        
-        const op0 = new Option("0 - Déficit / Prejuízo", "0");
-        const op1 = new Option("1 - Parcial / Discrepante", "1");
-        const op2 = new Option("2 - Preservado / Adequado", "2");
-        op2.selected = true;
+  lista.forEach((item, index) => {
+    const row = document.createElement("div");
+    row.className = "chk-item";
 
-        sel.add(op0); sel.add(op1); sel.add(op2);
-        
-        row.appendChild(label);
-        row.appendChild(sel);
-        divLista.appendChild(row);
-    });
+    const label = document.createElement("span");
+    label.innerText = item;
 
-    document.getElementById("modalChecklist").style.display = "flex";
+    const sel = document.createElement("select");
+    sel.id = `chk_${index}`;
+
+    sel.add(new Option("0 - Déficit / Prejuízo", "0"));
+    sel.add(new Option("1 - Parcial / Discrepante", "1"));
+    const ok = new Option("2 - Preservado / Adequado", "2");
+    ok.selected = true;
+    sel.add(ok);
+
+    row.appendChild(label);
+    row.appendChild(sel);
+    divLista.appendChild(row);
+  });
+
+  document.getElementById("modalChecklist").style.display = "flex";
+}
+
+function fecharChecklist() {
+  document.getElementById("modalChecklist").style.display = "none";
 }
 
 function salvarChecklist() {
-    const teste = document.getElementById("testeSelecionado").value;
-    const lista = checklists[teste];
-    
-    dados.valores = [];
-    dados.labels = lista;
-    dados.teste = teste;
+  const teste = document.getElementById("testeSelecionado").value;
+  const lista = checklists[teste];
 
-    let soma = 0;
-    
-    lista.forEach((_, index) => {
-        const val = parseInt(document.getElementById(`chk_${index}`).value);
-        dados.valores.push(val);
-        soma += val;
-    });
+  dados.valores = [];
+  dados.labels = lista;
+  dados.teste = teste;
 
-    dados.media = (soma / lista.length).toFixed(2);
+  let soma = 0;
+  lista.forEach((_, index) => {
+    const val = parseInt(document.getElementById(`chk_${index}`).value, 10);
+    dados.valores.push(val);
+    soma += val;
+  });
 
-    document.getElementById("modalChecklist").style.display = "none";
-    document.getElementById("statusCheck").innerText = `Gráfico Gerado! Média: ${dados.media}`;
-    
-    atualizarGrafico();
-    gerarTextoAutomatico();
+  dados.media = (soma / lista.length).toFixed(2);
+
+  fecharChecklist();
+  document.getElementById("statusCheck").innerText = `Gráfico Gerado! Média: ${dados.media}`;
+
+  atualizarGrafico();
+  gerarTextoAutomatico();
 }
 
-/* ================= GERADOR DE TEXTO DINÂMICO E DIAGNÓSTICO (ATUALIZADO) ================= */
+/* ================= TEXTO AUTOMÁTICO ================= */
 function gerarTextoAutomatico() {
-    const t = textosPadrao[dados.teste];
-    if (!t) return;
+  const t = textosPadrao[dados.teste];
+  if (!t) return;
 
-    let analiseTexto = t.analise;
-    let conclusaoTexto = t.conclusao;
-    let hipoteseDI = "";
-    let resultadoProg = "";
-    let desempenho3 = "";
+  let analiseTexto = t.analise || "";
+  let conclusaoTexto = t.conclusao || "";
 
-    // LÓGICA DE DIAGNÓSTICO DE DI (NEGRITO, CAIXA ALTA E CID)
-    if (dados.media >= 1.6) {
-        // Típico
-        analiseTexto = analiseTexto.replace("[DESEMPENHO]", "preservado e dentro da média normativa").replace("[DESEMPENHO2]", "habilidades robustas e funcionais");
-        desempenho3 = "adequada, permitindo fluxo de pensamento ágil";
-        
-        hipoteseDI = "<strong>DESENVOLVIMENTO NEUROPSICOMOTOR TÍPICO (Z76.8)</strong>";
-        resultadoProg = "muito favorável";
+  let hipoteseDI = "";
+  let resultadoProg = "";
+  let desempenho3 = "";
 
-    } else if (dados.media >= 1.2) {
-        // Limítrofe
-        analiseTexto = analiseTexto.replace("[DESEMPENHO]", "na zona limítrofe inferior").replace("[DESEMPENHO2]", "discrepâncias que geram esforço cognitivo");
-        desempenho3 = "lenta, impactando a fluidez em tarefas";
-        
-        hipoteseDI = "<strong>DIFICULDADE DE APRENDIZAGEM / INTELECTO LIMÍTROFE (R41.8)</strong>";
-        resultadoProg = "favorável, mediante suporte psicopedagógico";
+  const media = parseFloat(dados.media);
 
-    } else if (dados.media >= 0.7) {
-        // DI Leve
-        analiseTexto = analiseTexto.replace("[DESEMPENHO]", "abaixo da média esperada (Rebaixado)").replace("[DESEMPENHO2]", "prejuízos evidentes na abstração");
-        desempenho3 = "muito lenta, gerando sobrecarga cognitiva";
-        
-        hipoteseDI = "<strong>DEFICIÊNCIA INTELECTUAL LEVE (F70)</strong>";
-        resultadoProg = "dependente de estimulação contínua";
+  if (media >= 1.6) {
+    analiseTexto = analiseTexto.replace("[DESEMPENHO]", "preservado e dentro da média normativa")
+      .replace("[DESEMPENHO2]", "habilidades robustas e funcionais");
+    desempenho3 = "adequada, permitindo fluxo de pensamento ágil";
+    hipoteseDI = "<strong>DESENVOLVIMENTO NEUROPSICOMOTOR TÍPICO (Z76.8)</strong>";
+    resultadoProg = "muito favorável";
+  } else if (media >= 1.2) {
+    analiseTexto = analiseTexto.replace("[DESEMPENHO]", "na zona limítrofe inferior")
+      .replace("[DESEMPENHO2]", "discrepâncias que geram esforço cognitivo");
+    desempenho3 = "lenta, impactando a fluidez em tarefas";
+    hipoteseDI = "<strong>DIFICULDADE DE APRENDIZAGEM / INTELECTO LIMÍTROFE (R41.8)</strong>";
+    resultadoProg = "favorável, mediante suporte psicopedagógico";
+  } else if (media >= 0.7) {
+    analiseTexto = analiseTexto.replace("[DESEMPENHO]", "abaixo da média esperada (rebaixado)")
+      .replace("[DESEMPENHO2]", "prejuízos evidentes na abstração");
+    desempenho3 = "muito lenta, gerando sobrecarga cognitiva";
+    hipoteseDI = "<strong>DEFICIÊNCIA INTELECTUAL LEVE (F70)</strong>";
+    resultadoProg = "dependente de estimulação contínua";
+  } else {
+    analiseTexto = analiseTexto.replace("[DESEMPENHO]", "significativamente rebaixado (déficit severo)")
+      .replace("[DESEMPENHO2]", "prejuízos graves generalizados");
+    desempenho3 = "comprometida, inviabilizando tarefas sem ajuda";
+    hipoteseDI = "<strong>DEFICIÊNCIA INTELECTUAL MODERADA (F71)</strong>";
+    resultadoProg = "reservado, focado em AVDs";
+  }
 
-    } else {
-        // DI Moderada a Grave
-        analiseTexto = analiseTexto.replace("[DESEMPENHO]", "significativamente rebaixado (Déficit Severo)").replace("[DESEMPENHO2]", "prejuízos graves generalizados");
-        desempenho3 = "comprometida, inviabilizando tarefas sem ajuda";
-        
-        hipoteseDI = "<strong>DEFICIÊNCIA INTELECTUAL MODERADA (F71)</strong>";
-        resultadoProg = "reservado, focado em AVDs";
-    }
+  analiseTexto = analiseTexto.replace("[DESEMPENHO3]", desempenho3);
+  conclusaoTexto = conclusaoTexto.replace("[HIPOTESE]", hipoteseDI).replace("[RESULTADO]", resultadoProg);
 
-    // Substituições finais no texto
-    analiseTexto = analiseTexto.replace("[DESEMPENHO3]", desempenho3);
-    
-    // Insere o diagnóstico FORMATADO (Negrito/Caixa Alta/CID)
-    conclusaoTexto = conclusaoTexto.replace("[HIPOTESE]", hipoteseDI).replace("[RESULTADO]", resultadoProg);
+  document.getElementById("viewAnalise1").innerHTML = `<p>${analiseTexto.replace(/\n/g, "</p><p>")}</p>`;
+  document.getElementById("viewConclusao").innerHTML = `<p>${conclusaoTexto.replace(/\n/g, "</p><p>")}</p>`;
 
-    document.getElementById("viewAnalise1").innerHTML = `<p>${analiseTexto.replace(/\n/g, "</p><p>")}</p>`;
-    document.getElementById("viewConclusao").innerHTML = `<p>${conclusaoTexto.replace(/\n/g, "</p><p>")}</p>`;
-    
-    let encam = `
-    <p>Diante do exposto, sugere-se a seguinte conduta multidisciplinar para otimização do quadro:</p>
-    
-    <p><strong>1. Âmbito Escolar e Pedagógico:</strong><br>
-    É imperativa a implementação e revisão constante de um Plano de Ensino Individualizado (PEI/PDI), conforme previsto na Lei Brasileira de Inclusão. O currículo deve ser adaptado não apenas em volume, mas na natureza da apresentação do conteúdo. Recomenda-se priorizar o ensino de competências funcionais que tenham aplicação prática. O material deve ser enriquecido com pistas visuais, organizadores gráficos e recursos concretos, minimizando a dependência exclusiva de explicações verbais abstratas. As avaliações devem ser flexibilizadas (tempo estendido fator 1.5x e sala separada).</p>
+  const encam = `
+  <p>Diante do exposto, sugere-se a seguinte conduta multidisciplinar para otimização do quadro:</p>
+  <p><strong>1. Âmbito Escolar e Pedagógico:</strong><br>
+  Implementação e revisão de PEI/PDI; recursos visuais; flexibilização avaliativa e tempo estendido.</p>
+  <p><strong>2. Âmbito Clínico e Reabilitação:</strong><br>
+  Estimulação neuropsicológica semanal; suporte psicoterapêutico quando necessário.</p>
+  <p><strong>3. Âmbito Familiar e Social:</strong><br>
+  Rotina previsível, treino gradual de AVDs e quadros visuais.</p>`;
 
-    <p><strong>2. Âmbito Clínico e Reabilitação:</strong><br>
-    Indica-se o início/manutenção de Estimulação Neuropsicológica com frequência semanal. O foco terapêutico deve centrar-se no fortalecimento das Funções Executivas, especificamente controle inibitório e memória operacional. Paralelamente, sugere-se avaliação em Psicoterapia para trabalhar questões de regulação emocional e autoestima, frequentemente abaladas pela percepção das próprias dificuldades.</p>
-
-    <p><strong>3. Âmbito Familiar e Social:</strong><br>
-    A família deve atuar como co-terapeuta, estruturando uma rotina previsível que ofereça segurança. É essencial estimular a autonomia em Atividades de Vida Diária (AVDs), como higiene e alimentação, evitando a superproteção. Recomenda-se o uso de quadros de rotina visual e fomento à participação em atividades extracurriculares estruturadas para fortalecimento de habilidades sociais.</p>
-    
-    <p><strong>4. Orientações Jurídicas e Sociais (Se Aplicável):</strong><br>
-    Considerando o perfil de ${hipoteseDI}, orienta-se a família a buscar informações sobre os direitos assegurados pela legislação vigente (Estatuto da Pessoa com Deficiência), incluindo isenções, benefícios de prestação continuada (BPC) caso preencham os critérios socioeconômicos, e carteira de identificação para prioridade de atendimento.</p>`;
-    
-    document.getElementById("viewEncaminhamentos").innerHTML = encam;
+  document.getElementById("viewEncaminhamentos").innerHTML = encam;
 }
 
 /* ================= GRÁFICO (Chart.js) ================= */
 function atualizarGrafico() {
-    const ctx = document.getElementById("graficoLinha").getContext("2d");
-    document.getElementById("boxGrafico").style.display = "block";
+  const canvas = document.getElementById("graficoLinha");
+  if (!canvas) return;
 
-    if (chartInstance) chartInstance.destroy();
+  const ctx = canvas.getContext("2d");
+  document.getElementById("boxGrafico").style.display = "block";
 
-    const baseIdeal = new Array(dados.valores.length).fill(2);
+  if (chartInstance) chartInstance.destroy();
 
-    chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: dados.labels,
-            datasets: [
-                {
-                    label: 'Paciente',
-                    data: dados.valores,
-                    borderColor: '#0056b3',
-                    backgroundColor: 'rgba(0, 86, 179, 0.1)',
-                    borderWidth: 2,
-                    pointBackgroundColor: '#0056b3',
-                    pointRadius: 5,
-                    tension: 0.2,
-                    fill: true
-                },
-                {
-                    label: 'Esperado',
-                    data: baseIdeal,
-                    borderColor: '#999',
-                    borderDash: [5, 5],
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    fill: false
-                }
-            ]
+  const baseIdeal = new Array(dados.valores.length).fill(2);
+
+  chartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: dados.labels,
+      datasets: [
+        {
+          label: "Paciente",
+          data: dados.valores,
+          borderColor: "#0056b3",
+          backgroundColor: "rgba(0, 86, 179, 0.1)",
+          borderWidth: 2,
+          pointBackgroundColor: "#0056b3",
+          pointRadius: 5,
+          tension: 0.2,
+          fill: true
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    min: -1, 
-                    max: 2.5,
-                    ticks: {
-                        stepSize: 1,
-                        callback: function(v) {
-                            if (v === 0) return "Déficit (0)";
-                            if (v === 1) return "Parcial (1)";
-                            if (v === 2) return "Preservado (2)";
-                            return "";
-                        },
-                        font: { size: 11, weight: 'bold' }
-                    },
-                    grid: { 
-                        color: function(context) {
-                            if (context.tick.value === 0) return '#666'; 
-                            return '#e0e0e0';
-                        } 
-                    }
-                },
-                x: {
-                    grid: { display: false },
-                    ticks: { font: { size: 10 } }
-                }
-            },
-            plugins: {
-                legend: { position: 'bottom' }
-            }
+        {
+          label: "Esperado",
+          data: baseIdeal,
+          borderColor: "#999",
+          borderDash: [5, 5],
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false
         }
-    });
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom" }
+      },
+      scales: {
+        y: {
+          min: -1,
+          max: 2.5,
+          ticks: {
+            stepSize: 1,
+            callback: (v) => {
+              if (v === 0) return "Déficit (0)";
+              if (v === 1) return "Parcial (1)";
+              if (v === 2) return "Preservado (2)";
+              return "";
+            }
+          }
+        },
+        x: { grid: { display: false } }
+      }
+    }
+  });
 }
 
 function formatarData(d) {
-    if (!d) return "--/--/----";
-    return d.split("-").reverse().join("/");
+  if (!d) return "--/--/----";
+  return d.split("-").reverse().join("/");
 }

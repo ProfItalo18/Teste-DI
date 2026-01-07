@@ -1,204 +1,226 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laudo Neuropsicológico - Sistema Nuvem</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Laudo Neuropsicológico - Sistema Nuvem</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
+  <!-- LOGIN OVERLAY -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-box">
+      <h2>Bem-vindo</h2>
+      <p>Acesse o Manain Sys com sua conta</p>
 
-    <div class="app-wrapper">
-        
-        <aside class="sidebar no-print">
-            <div class="sidebar-header">
-                <h2>Manain Sys</h2>
-            </div>
-            
-            <div class="scroll-area">
-                
-                <div class="form-group db-section">
-                    <label>📂 Banco de Dados de Pacientes</label>
-                    <select id="listaPacientesSalvos" onchange="carregarPacienteDoBanco()">
-                        <option value="">Carregar Paciente...</option>
-                    </select>
-                    <div class="btn-row">
-                        <button class="btn-save" onclick="salvarPaciente()">💾 Salvar</button>
-                        <button class="btn-delete" onclick="excluirPaciente()">🗑️ Excluir</button>
-                    </div>
-                    <div id="statusCheck" class="status">Aguardando ação...</div>
-                </div>
+      <button onclick="fazerLoginGoogle()" class="btn-google" type="button" aria-label="Entrar com Google">
+        <span class="google-icon" aria-hidden="true">
+          <!-- Ícone Google (SVG) -->
+          <svg width="20" height="20" viewBox="0 0 48 48">
+            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.659 32.658 29.2 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.047 6.053 29.243 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+            <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 16.108 19.01 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.047 6.053 29.243 4 24 4c-7.682 0-14.35 4.34-17.694 10.691z"/>
+            <path fill="#4CAF50" d="M24 44c5.103 0 9.834-1.958 13.36-5.142l-6.172-5.226C29.132 35.091 26.688 36 24 36c-5.177 0-9.623-3.317-11.292-7.946l-6.52 5.023C9.49 39.556 16.227 44 24 44z"/>
+            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a11.96 11.96 0 0 1-4.115 5.632l.003-.002 6.172 5.226C36.926 39.244 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+          </svg>
+        </span>
+        Entrar com Google
+      </button>
 
-                <div class="form-group">
-                    <label>Paciente:</label>
-                    <input type="text" id="nomePaciente" oninput="atualizarRelatorio()" placeholder="Nome Completo">
-                    
-                    <label>Nascimento:</label>
-                    <input type="date" id="dataNasc" oninput="atualizarRelatorio()">
-                    
-                    <label>Data Aplicação:</label>
-                    <input type="date" id="dataAplicacao" oninput="atualizarRelatorio()">
-                </div>
-
-                <div class="form-group">
-                    <label>Instrumento de Avaliação:</label>
-                    <select id="testeSelecionado" onchange="resetarDadosTeste()">
-                        <option value="" disabled selected>-- Selecione --</option>
-                        
-                        <optgroup label="Inteligência (QI) - Verbal e Executivo">
-                            <option value="wisc">WISC-IV (6 a 16 anos)</option>
-                            <option value="wais">WAIS-III (16 a 90 anos)</option>
-                        </optgroup>
-
-                        <optgroup label="Inteligência Não-Verbal (Ideal p/ TEA/Fala)">
-                            <option value="sonr27">SON-R 2½-7 [a] (2 a 7 anos)</option>
-                            <option value="sonr640">SON-R 6-40 (6 a 40 anos)</option>
-                            <option value="raven">Matrizes de Raven (Geral)</option>
-                        </optgroup>
-
-                        <optgroup label="Comportamento Adaptativo (Essencial p/ DI)">
-                            <option value="abas">ABAS-3 (Todas as idades)</option>
-                            <option value="vinhais">Vinhais-3 (Todas as idades)</option>
-                        </optgroup>
-                    </select>
-
-                    <p style="font-size: 0.75rem; color: #666; margin-top: 5px; font-style: italic; margin-bottom: 10px;">
-                        *Selecione o teste para liberar o preenchimento.
-                    </p>
-
-                    <button class="btn-primary" onclick="abrirChecklist()">Preencher Gráfico & Dados</button>
-                </div>
-
-                <div class="form-group">
-                    <button class="btn-print" onclick="window.print()">🖨️ IMPRIMIR LAUDO</button>
-                </div>
-            </div>
-        </aside>
-
-        <main class="preview-container">
-            
-            <table class="tabela-layout">
-                
-                <thead>
-                    <tr>
-                        <td>
-                            <div class="header-space">&nbsp;</div>
-                            <div class="header-fixed">
-                                <div class="timbrado-top">
-                                    <img src="col.png" alt="Logo COL" class="logo-topo">
-                                    
-                                    <h3>CENTRO OCUPACIONAL DE LONDRINA</h3>
-                                    <p class="sub">Escola Manain - Educação Infantil e Ensino Fundamental,<br>na Modalidade Educação Especial</p>
-                                    <div class="legal">
-                                        <p>Fundado Em 22/06/1985 - CNPJ 78.962.263/0001-79</p>
-                                        <p>Utilidade Pública Municipal Lei Nº 3.956 de 24/04/1987</p>
-                                    </div>
-                                    <hr class="line">
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                </thead>
-
-                <tfoot>
-                    <tr>
-                        <td>
-                            <div class="footer-space">&nbsp;</div>
-                            <div class="footer-fixed">
-                                <div class="timbrado-bottom">
-                                    <hr class="line">
-                                    <p>Rua das Açucenas Nº. 100 - Jd. Colina Verde - Fone/Fax: (43) 3328-4415.</p>
-                                    <p>CEP: 86050-570-Londrina/ PR &nbsp;|&nbsp; centroocupacional.secretaria@gmail.com</p>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                </tfoot>
-
-                <tbody>
-                    <tr>
-                        <td class="content-cell">
-                            
-                            <div class="documento-corpo">
-                                <h1 class="titulo-principal">RELATÓRIO DE AVALIAÇÃO NEUROPSICOLÓGICA</h1>
-
-                                <section>
-                                    <h4 class="titulo-secao">1. IDENTIFICAÇÃO</h4>
-                                    <table class="tabela-dados">
-                                        <tr>
-                                            <td width="60%"><strong>Paciente:</strong> <span id="viewNome"></span></td>
-                                            <td><strong>Nasc.:</strong> <span id="viewNasc"></span></td>
-                                        </tr>
-                                        <tr>
-                                            <td><strong>Idade:</strong> <span id="viewIdade"></span></td>
-                                            <td><strong>Data Avaliação:</strong> <span id="viewData"></span></td>
-                                        </tr>
-                                    </table>
-                                </section>
-
-                                <section>
-                                    <h4 class="titulo-secao">2. MOTIVO DA AVALIAÇÃO</h4>
-                                    <div id="viewMotivo" class="texto-tecnico">
-                                        <p class="placeholder">[Preencha o nome e selecione o teste...]</p>
-                                    </div>
-                                </section>
-
-                                <section>
-                                    <h4 class="titulo-secao">3. ANÁLISE QUANTITATIVA E GRÁFICA</h4>
-                                    <div id="viewAnalise1" class="texto-tecnico">
-                                        <p class="placeholder">[Aguardando Checklist...]</p>
-                                    </div>
-
-                                    <div id="boxGrafico" class="grafico-wrapper" style="display:none;">
-                                        <canvas id="graficoLinha"></canvas>
-                                        <p class="legenda-grafico">Figura 1: Comparativo entre Desempenho Ideal (Linha Cinza) e Obtido (Linha Azul).</p>
-                                    </div>
-
-                                    <div id="viewAnalise2" class="texto-tecnico"></div>
-                                </section>
-
-                                <section>
-                                    <h4 class="titulo-secao">4. ENCAMINHAMENTOS</h4>
-                                    <div id="viewEncaminhamentos" class="texto-tecnico">
-                                        <p class="placeholder">[Aguardando Análise...]</p>
-                                    </div>
-                                </section>
-
-                                <section>
-                                    <h4 class="titulo-secao">5. CONCLUSÃO</h4>
-                                    <div id="viewConclusao" class="texto-tecnico">
-                                        <p class="placeholder">[Aguardando Análise...]</p>
-                                    </div>
-                                </section>
-
-                                <div class="assinatura-box">
-                                    <img src="asspsicologa.png" alt="Assinatura" class="img-ass" onerror="this.style.display='none'">
-                                    <p><strong>Jaqueline Gonçalves Malaquim</strong></p>
-                                    <p>Psicóloga - CRP 08/30548</p>
-                                </div>
-                            </div>
-
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-
-        </main>
+      <p id="loginError" class="error-msg"></p>
     </div>
+  </div>
 
-    <div id="modalChecklist" class="modal">
-        <div class="modal-card">
-            <h3>Pontuação do Teste</h3>
-            <div id="listaChecklist"></div>
-            <div class="modal-botoes">
-                <button class="btn-success" onclick="salvarChecklist()">Gerar Gráfico e Análise</button>
-                <button class="btn-cancel" onclick="document.getElementById('modalChecklist').style.display='none'">Cancelar</button>
-            </div>
+  <!-- APP PRINCIPAL -->
+  <div id="appPrincipal" class="app-wrapper">
+    <aside class="sidebar no-print">
+      <div class="sidebar-header">
+        <h2>Manain Sys</h2>
+        <small id="userBadge" class="user-badge">—</small>
+      </div>
+
+      <div class="scroll-area">
+        <div class="form-group db-section">
+          <label>📂 Banco de Dados de Pacientes</label>
+
+          <select id="listaPacientesSalvos" onchange="carregarPacienteDoBanco()">
+            <option value="">Carregar Paciente...</option>
+          </select>
+
+          <div class="btn-row">
+            <button class="btn-save" onclick="salvarPaciente()" type="button">💾 Salvar</button>
+            <button class="btn-delete" onclick="excluirPaciente()" type="button">🗑️ Excluir</button>
+          </div>
+
+          <button class="btn-logout" onclick="fazerLogout()" type="button">🚪 Sair</button>
+
+          <div id="statusCheck" class="status">Aguardando ação...</div>
         </div>
-    </div>
 
-    <script type="module" src="script.js"></script>
+        <div class="form-group">
+          <label>Paciente:</label>
+          <input type="text" id="nomePaciente" oninput="atualizarRelatorio()" placeholder="Nome Completo"/>
+
+          <label>Nascimento:</label>
+          <input type="date" id="dataNasc" oninput="atualizarRelatorio()"/>
+
+          <label>Data Aplicação:</label>
+          <input type="date" id="dataAplicacao" oninput="atualizarRelatorio()"/>
+        </div>
+
+        <div class="form-group">
+          <label>Instrumento de Avaliação:</label>
+          <select id="testeSelecionado" onchange="resetarDadosTeste()">
+            <option value="" disabled selected>-- Selecione --</option>
+
+            <optgroup label="Inteligência (QI) - Verbal e Executivo">
+              <option value="wisc">WISC-IV (6 a 16 anos)</option>
+              <option value="wais">WAIS-III (16 a 90 anos)</option>
+            </optgroup>
+
+            <optgroup label="Inteligência Não-Verbal (Ideal p/ TEA/Fala)">
+              <option value="sonr27">SON-R 2½-7 [a] (2 a 7 anos)</option>
+              <option value="sonr640">SON-R 6-40 (6 a 40 anos)</option>
+              <option value="raven">Matrizes de Raven (Geral)</option>
+            </optgroup>
+
+            <optgroup label="Comportamento Adaptativo (Essencial p/ DI)">
+              <option value="abas">ABAS-3 (Todas as idades)</option>
+              <option value="vinhais">Vinhais-3 (Todas as idades)</option>
+            </optgroup>
+          </select>
+
+          <p class="hint">
+            *Selecione o teste para liberar o preenchimento.
+          </p>
+
+          <button class="btn-primary" onclick="abrirChecklist()" type="button">Preencher Gráfico & Dados</button>
+        </div>
+
+        <div class="form-group">
+          <button class="btn-print" onclick="window.print()" type="button">🖨️ IMPRIMIR LAUDO</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="preview-container">
+      <table class="tabela-layout">
+        <thead>
+          <tr>
+            <td>
+              <div class="header-space">&nbsp;</div>
+              <div class="header-fixed">
+                <div class="timbrado-top">
+                  <img src="col.png" alt="Logo COL" class="logo-topo" />
+                  <h3>CENTRO OCUPACIONAL DE LONDRINA</h3>
+                  <p class="sub">Escola Manain - Educação Infantil e Ensino Fundamental,<br>na Modalidade Educação Especial</p>
+                  <div class="legal">
+                    <p>Fundado Em 22/06/1985 - CNPJ 78.962.263/0001-79</p>
+                    <p>Utilidade Pública Municipal Lei Nº 3.956 de 24/04/1987</p>
+                  </div>
+                  <hr class="line" />
+                </div>
+              </div>
+            </td>
+          </tr>
+        </thead>
+
+        <tfoot>
+          <tr>
+            <td>
+              <div class="footer-space">&nbsp;</div>
+              <div class="footer-fixed">
+                <div class="timbrado-bottom">
+                  <hr class="line" />
+                  <p>Rua das Açucenas Nº. 100 - Jd. Colina Verde - Fone/Fax: (43) 3328-4415.</p>
+                  <p>CEP: 86050-570-Londrina/ PR &nbsp;|&nbsp; centroocupacional.secretaria@gmail.com</p>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tfoot>
+
+        <tbody>
+          <tr>
+            <td class="content-cell">
+              <div class="documento-corpo">
+                <h1 class="titulo-principal">RELATÓRIO DE AVALIAÇÃO NEUROPSICOLÓGICA</h1>
+
+                <section>
+                  <h4 class="titulo-secao">1. IDENTIFICAÇÃO</h4>
+                  <table class="tabela-dados">
+                    <tr>
+                      <td width="60%"><strong>Paciente:</strong> <span id="viewNome"></span></td>
+                      <td><strong>Nasc.:</strong> <span id="viewNasc"></span></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Idade:</strong> <span id="viewIdade"></span></td>
+                      <td><strong>Data Avaliação:</strong> <span id="viewData"></span></td>
+                    </tr>
+                  </table>
+                </section>
+
+                <section>
+                  <h4 class="titulo-secao">2. MOTIVO DA AVALIAÇÃO</h4>
+                  <div id="viewMotivo" class="texto-tecnico">
+                    <p class="placeholder">[Preencha o nome e selecione o teste...]</p>
+                  </div>
+                </section>
+
+                <section>
+                  <h4 class="titulo-secao">3. ANÁLISE QUANTITATIVA E GRÁFICA</h4>
+                  <div id="viewAnalise1" class="texto-tecnico">
+                    <p class="placeholder">[Aguardando Checklist...]</p>
+                  </div>
+
+                  <div id="boxGrafico" class="grafico-wrapper" style="display:none;">
+                    <canvas id="graficoLinha"></canvas>
+                    <p class="legenda-grafico">Figura 1: Comparativo entre Desempenho Ideal e Obtido.</p>
+                  </div>
+
+                  <div id="viewAnalise2" class="texto-tecnico"></div>
+                </section>
+
+                <section>
+                  <h4 class="titulo-secao">4. ENCAMINHAMENTOS</h4>
+                  <div id="viewEncaminhamentos" class="texto-tecnico">
+                    <p class="placeholder">[Aguardando Análise...]</p>
+                  </div>
+                </section>
+
+                <section>
+                  <h4 class="titulo-secao">5. CONCLUSÃO</h4>
+                  <div id="viewConclusao" class="texto-tecnico">
+                    <p class="placeholder">[Aguardando Análise...]</p>
+                  </div>
+                </section>
+
+                <div class="assinatura-box">
+                  <img src="asspsicologa.png" alt="Assinatura" class="img-ass" onerror="this.style.display='none'">
+                  <p><strong>Jaqueline Gonçalves Malaquim</strong></p>
+                  <p>Psicóloga - CRP 08/30548</p>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+  </div>
+
+  <!-- MODAL CHECKLIST -->
+  <div id="modalChecklist" class="modal">
+    <div class="modal-card">
+      <h3>Pontuação do Teste</h3>
+      <div id="listaChecklist"></div>
+      <div class="modal-botoes">
+        <button class="btn-success" onclick="salvarChecklist()" type="button">Gerar Gráfico e Análise</button>
+        <button class="btn-cancel" onclick="fecharChecklist()" type="button">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
 </body>
 </html>
