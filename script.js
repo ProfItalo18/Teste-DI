@@ -280,10 +280,9 @@ async function carregarListaPacientes() {
   select.innerHTML = '<option value="">Carregar Paciente...</option>';
 
   try {
-    // lista somente do usuário logado
+    // agora lista todos os pacientes da coleção, independente do usuário
     const q = query(
       collection(db, nomeColecao),
-      where("uid", "==", auth.currentUser.uid),
       orderBy("updatedAt", "desc")
     );
 
@@ -305,6 +304,7 @@ async function carregarListaPacientes() {
     alert(`Erro ao listar: ${e.code || ""} ${e.message || ""}`);
   }
 }
+
 
 async function salvarPaciente() {
   if (!exigirLogin()) return;
@@ -373,13 +373,6 @@ async function carregarPacienteDoBanco() {
 
     const paciente = snap.data();
 
-    // segurança extra: só carrega se for do usuário
-    if (paciente.uid !== auth.currentUser.uid) {
-      alert("Acesso negado a este registro.");
-      pacienteAtualId = "";
-      return;
-    }
-
     document.getElementById("nomePaciente").value = paciente.nome || "";
     document.getElementById("dataNasc").value = paciente.nascimento || "";
     document.getElementById("dataAplicacao").value = paciente.dataAplicacao || "";
@@ -419,8 +412,7 @@ async function excluirPaciente() {
     // valida ownership antes de excluir (regras também validam, mas aqui fica claro)
     const snap = await getDoc(doc(db, nomeColecao, id));
     if (!snap.exists()) return alert("Registro não encontrado.");
-    if (snap.data().uid !== auth.currentUser.uid) return alert("Acesso negado.");
-
+    
     await deleteDoc(doc(db, nomeColecao, id));
     alert("Excluído!");
 
